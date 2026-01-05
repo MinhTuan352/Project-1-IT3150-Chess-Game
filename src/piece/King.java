@@ -1,13 +1,13 @@
 package piece;
 
-import main.GamePanel;
+import main.GameLogic;
 import main.Type;
 
 public class King extends Piece {
     public King(int col, int row, int color) {
         super(col, row, color);
         type = Type.KING;
-        if (color == GamePanel.WHITE) {
+        if (color == GameLogic.WHITE) {
             this.image = getImage("/piece/w-king");
         } else {
             this.image = getImage("/piece/b-king");
@@ -29,12 +29,12 @@ public class King extends Piece {
             if (!moved) {
                 // Nhập thành phải
                 if (targetCol == preCol + 2 && targetRow == preRow && !pieceIsOnStraightLine(targetCol, targetRow)) {
-                    for (Piece piece : GamePanel.simPieces) {
+                    for (Piece piece : GameLogic.simPieces) {
                         if (piece.col == preCol + 3 && piece.row == preRow && !piece.moved) {
                             // Kiểm tra Vua không bị chiếu ở vị trí hiện tại, ô trung gian, và ô đích
                             if (!isSquareUnderAttack(preCol, preRow) && !isSquareUnderAttack(preCol + 1, preRow)
                                     && !isSquareUnderAttack(preCol + 2, preRow)) {
-                                GamePanel.castlingP = piece;
+                                GameLogic.castlingP = piece;
                                 return true;
                             }
                         }
@@ -43,7 +43,7 @@ public class King extends Piece {
                 // Nhập thành trái
                 if (targetCol == preCol - 2 && targetRow == preRow && !pieceIsOnStraightLine(targetCol, targetRow)) {
                     Piece p[] = new Piece[2]; // Tạo mảng chứa quân Xe (p[1]) và quân Mã (p[0])
-                    for (Piece piece : GamePanel.simPieces) {
+                    for (Piece piece : GameLogic.simPieces) {
                         if (piece.col == preCol - 3 && piece.row == preRow) {
                             p[0] = piece; // Kiểm tra xem quân Mã có ở đây không
                         }
@@ -54,7 +54,7 @@ public class King extends Piece {
                             // Kiểm tra Vua không bị chiếu ở vị trí hiện tại, các ô trung gian, và ô đích
                             if (!isSquareUnderAttack(preCol, preRow) && !isSquareUnderAttack(preCol - 1, preRow)
                                     && !isSquareUnderAttack(preCol - 2, preRow)) {
-                                GamePanel.castlingP = p[1];
+                                GameLogic.castlingP = p[1];
                                 return true;
                             }
                         }
@@ -67,7 +67,7 @@ public class King extends Piece {
 
     // Phương thức kiểm tra xem một ô có bị quân đối phương tấn công không
     private boolean isSquareUnderAttack(int col, int row) {
-        for (Piece piece : GamePanel.simPieces) {
+        for (Piece piece : GameLogic.simPieces) {
             // Chỉ kiểm tra quân đối phương
             if (piece.color != this.color && piece != this) {
                 // Kiểm tra xem quân đối phương có thể di chuyển đến ô này không

@@ -1,7 +1,7 @@
 package piece;
 
 import main.Board;
-import main.GamePanel;
+import main.GameLogic;
 import main.Type;
 
 import javax.imageio.ImageIO;
@@ -12,12 +12,12 @@ import java.awt.Graphics2D;
 public class Piece {
     public Type type;
     public BufferedImage image;
-    public int x, y;    // Toạ độ vẽ quân cờ trên bàn cờ
+    public int x, y; // Toạ độ vẽ quân cờ trên bàn cờ
     public int col, row, preCol, preRow;
-    public int color;   // 0: white, 1: black
+    public int color; // 0: white, 1: black
     public Piece hittingP;
-    public boolean moved;   // Check quân đã di chuyển chưa (Áp dụng cho Tốt và Vua)
-    public boolean twoStepped;  // Kiểm tra quân Tốt đi 2 nước
+    public boolean moved; // Check quân đã di chuyển chưa (Áp dụng cho Tốt và Vua)
+    public boolean twoStepped; // Kiểm tra quân Tốt đi 2 nước
 
     public Piece(int col, int row, int color) {
         this.col = col;
@@ -29,7 +29,7 @@ public class Piece {
         preRow = row;
     }
 
-    public BufferedImage getImage (String imagePath) {
+    public BufferedImage getImage(String imagePath) {
         BufferedImage image = null;
         try {
             image = ImageIO.read(getClass().getResourceAsStream(imagePath + ".png"));
@@ -46,7 +46,7 @@ public class Piece {
 
     public int getY(int row) {
         // Tính toạ độ y dựa trên hàng
-        return row  * Board.SQUARE_SIZE;
+        return row * Board.SQUARE_SIZE;
     }
 
     public int getCol(int x) {
@@ -60,8 +60,8 @@ public class Piece {
     }
 
     public int getIndex() {
-        for (int index = 0; index < GamePanel.simPieces.size(); index++) {
-            if (GamePanel.simPieces.get(index) == this) {
+        for (int index = 0; index < GameLogic.simPieces.size(); index++) {
+            if (GameLogic.simPieces.get(index) == this) {
                 return index;
             }
         }
@@ -93,8 +93,10 @@ public class Piece {
     }
 
     public boolean canMove(int targetCol, int targetRow) {
-        // Kiểm tra xem quân cờ có thể di chuyển đến vị trí (targetCol, targetRow) hay không
-        // Mặc định trả về false, các lớp con sẽ ghi đè phương thức này để kiểm tra hợp lệ
+        // Kiểm tra xem quân cờ có thể di chuyển đến vị trí (targetCol, targetRow) hay
+        // không
+        // Mặc định trả về false, các lớp con sẽ ghi đè phương thức này để kiểm tra hợp
+        // lệ
         return false;
     }
 
@@ -114,8 +116,9 @@ public class Piece {
     }
 
     public Piece getHittingP(int targetCol, int targetRow) {
-        // Phương thức này sẽ giải quyết vấn đề khi quân cờ di chuyển đến vị trí đang có quân cờ khác
-        for (Piece piece : GamePanel.simPieces) {
+        // Phương thức này sẽ giải quyết vấn đề khi quân cờ di chuyển đến vị trí đang có
+        // quân cờ khác
+        for (Piece piece : GameLogic.simPieces) {
             if (piece.col == targetCol && piece.row == targetRow && piece != this) {
                 return piece;
             }
@@ -142,7 +145,7 @@ public class Piece {
     public boolean pieceIsOnStraightLine(int targetCol, int targetRow) {
         // Khi quân cờ của bạn di chuyển sang trái
         for (int c = preCol - 1; c > targetCol; c--) {
-            for (Piece piece: GamePanel.simPieces) {
+            for (Piece piece : GameLogic.simPieces) {
                 // Nếu có quân cờ cản đường ở bên trái
                 if (piece.col == c && piece.row == targetRow) {
                     hittingP = piece;
@@ -153,7 +156,7 @@ public class Piece {
 
         // Khi quân cờ của bạn di chuyển sang phải
         for (int c = preCol + 1; c < targetCol; c++) {
-            for (Piece piece: GamePanel.simPieces) {
+            for (Piece piece : GameLogic.simPieces) {
                 // Nếu có quân cờ cản đường ở bên phải
                 if (piece.col == c && piece.row == targetRow) {
                     hittingP = piece;
@@ -164,7 +167,7 @@ public class Piece {
 
         // Khi quân cờ của bạn di chuyển lên trên
         for (int r = preRow - 1; r > targetRow; r--) {
-            for (Piece piece: GamePanel.simPieces) {
+            for (Piece piece : GameLogic.simPieces) {
                 // Nếu có quân cờ cản đường ở phía trên
                 if (piece.col == targetCol && piece.row == r) {
                     hittingP = piece;
@@ -175,7 +178,7 @@ public class Piece {
 
         // Khi quân cờ của bạn di chuyển xuống dưới
         for (int r = preRow + 1; r < targetRow; r++) {
-            for (Piece piece: GamePanel.simPieces) {
+            for (Piece piece : GameLogic.simPieces) {
                 // Nếu có quân cờ cản đường ở phía dưới
                 if (piece.col == targetCol && piece.row == r) {
                     hittingP = piece;
@@ -192,7 +195,7 @@ public class Piece {
             // Khi quân cờ di chuyển lên trái
             for (int c = preCol - 1; c > targetCol; c--) {
                 int diff = Math.abs(c - preCol);
-                for (Piece piece: GamePanel.simPieces) {
+                for (Piece piece : GameLogic.simPieces) {
                     if (piece.col == c && piece.row == preRow - diff) {
                         hittingP = piece;
                         return true;
@@ -203,7 +206,7 @@ public class Piece {
             // Khi quân cờ di chuyển lên phải
             for (int c = preCol + 1; c < targetCol; c++) {
                 int diff = Math.abs(c - preCol);
-                for (Piece piece: GamePanel.simPieces) {
+                for (Piece piece : GameLogic.simPieces) {
                     if (piece.col == c && piece.row == preRow - diff) {
                         hittingP = piece;
                         return true;
@@ -215,7 +218,7 @@ public class Piece {
             // Khi quân cờ di chuyển xuống trái
             for (int c = preCol - 1; c > targetCol; c--) {
                 int diff = Math.abs(c - preCol);
-                for (Piece piece: GamePanel.simPieces) {
+                for (Piece piece : GameLogic.simPieces) {
                     if (piece.col == c && piece.row == preRow + diff) {
                         hittingP = piece;
                         return true;
@@ -226,7 +229,7 @@ public class Piece {
             // Khi quân cờ di chuyển xuống phải
             for (int c = preCol + 1; c < targetCol; c++) {
                 int diff = Math.abs(c - preCol);
-                for (Piece piece: GamePanel.simPieces) {
+                for (Piece piece : GameLogic.simPieces) {
                     if (piece.col == c && piece.row == preRow + diff) {
                         hittingP = piece;
                         return true;
@@ -246,7 +249,7 @@ public class Piece {
     public void draw(Graphics2D g2, int width, int height) {
         g2.drawImage(image, x, y, width, height, null);
     }
-    
+
     // Tạo bản sao của quân cờ để undo
     public Piece getCopy() {
         Piece newPiece = null;

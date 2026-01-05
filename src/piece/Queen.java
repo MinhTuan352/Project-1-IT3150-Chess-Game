@@ -1,13 +1,13 @@
 package piece;
 
-import main.GamePanel;
+import main.GameLogic;
 import main.Type;
 
 public class Queen extends Piece {
     public Queen(int col, int row, int color) {
         super(col, row, color);
         type = Type.QUEEN;
-        if (color == GamePanel.WHITE) {
+        if (color == GameLogic.WHITE) {
             this.image = getImage("/piece/w-queen");
         } else {
             this.image = getImage("/piece/b-queen");
@@ -16,7 +16,8 @@ public class Queen extends Piece {
 
     @Override
     public boolean canMove(int targetCol, int targetRow) {
-        if (isWithinBoard(targetCol, targetRow) && !isSameSquare(targetCol, targetRow) && isValidSquare(targetCol, targetRow)) {
+        if (isWithinBoard(targetCol, targetRow) && !isSameSquare(targetCol, targetRow)
+                && isValidSquare(targetCol, targetRow)) {
             // Hậu di chuyển dọc ngang và chéo (Kết hợp của Xe và Tượng)
             if (targetCol == preCol || targetRow == preRow) {
                 if (!pieceIsOnStraightLine(targetCol, targetRow)) {
