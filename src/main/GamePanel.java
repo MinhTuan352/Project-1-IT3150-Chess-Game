@@ -21,15 +21,16 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Random;
 
 public class GamePanel extends JPanel implements Runnable {
-    public static final int WIDTH = 880;    // Chiều rộng cửa sổ trò chơi
-    public static final int HEIGHT = 640;   // Chiều cao cửa sổ trò chơi
-    final int FPS = 60;  // Số khung hình trên giây
-    Thread gameThread;   // Luồng chính của trò chơi
-    Board board = new Board();  // Bàn cờ
-    Mouse mouse = new Mouse();  // Chuột
+    public static final int WIDTH = 880; // Chiều rộng cửa sổ trò chơi
+    public static final int HEIGHT = 640; // Chiều cao cửa sổ trò chơi
+    final int FPS = 60; // Số khung hình trên giây
+    Thread gameThread; // Luồng chính của trò chơi
+    Board board = new Board(); // Bàn cờ
+    Mouse mouse = new Mouse(); // Chuột
 
     // Game Settings
     GameSettings settings;
@@ -38,13 +39,13 @@ public class GamePanel extends JPanel implements Runnable {
     long lastTimerTime;
 
     // Piece
-    public static ArrayList<Piece> pieces = new ArrayList<>();  // Danh sách các quân cờ hiện có trên bàn cờ
-    public static ArrayList<Piece> simPieces = new ArrayList<>();   // Danh sách các quân cờ mô phỏng để thử nước đi
-    public static ArrayList<Piece> capturedPieces = new ArrayList<>();  // Danh sách các quân cờ đã bị ăn
-    ArrayList<Piece> promoPieces = new ArrayList<>();   // Danh sách 4 quân cờ có thể phong cấp
-    Piece activeP;  // Quân cờ đang được chọn
-    Piece checkingP;    // Quân cờ đang chiếu
-    public static Piece castlingP;   // Nhập thành
+    public static ArrayList<Piece> pieces = new ArrayList<>(); // Danh sách các quân cờ hiện có trên bàn cờ
+    public static ArrayList<Piece> simPieces = new ArrayList<>(); // Danh sách các quân cờ mô phỏng để thử nước đi
+    public static ArrayList<Piece> capturedPieces = new ArrayList<>(); // Danh sách các quân cờ đã bị ăn
+    ArrayList<Piece> promoPieces = new ArrayList<>(); // Danh sách 4 quân cờ có thể phong cấp
+    Piece activeP; // Quân cờ đang được chọn
+    Piece checkingP; // Quân cờ đang chiếu
+    public static Piece castlingP; // Nhập thành
 
     // Color
     public static final int WHITE = 0;
@@ -54,11 +55,11 @@ public class GamePanel extends JPanel implements Runnable {
     // Boolean
     boolean canMove;
     boolean validSquare;
-    boolean promotion;  // Trạng thái chờ phong cấp
-    boolean gameOver;   // Chiếu hết => Game Over
+    boolean promotion; // Trạng thái chờ phong cấp
+    boolean gameOver; // Chiếu hết => Game Over
 
     // Lịch sử các nước đi
-    ArrayList<String> moveList = new ArrayList<>();  // Danh sách các nước đi (theo ký hiệu cờ vua)
+    ArrayList<String> moveList = new ArrayList<>(); // Danh sách các nước đi (theo ký hiệu cờ vua)
     int historyScrollIndex = 0; // Dòng đầu tiên đang hiển thị
     final int LINE_HEIGHT = 40; // Chiều cao mỗi dòng chữ
 
@@ -66,6 +67,13 @@ public class GamePanel extends JPanel implements Runnable {
     DecimalFormat dFormat = new DecimalFormat("00");
 
     ArrayList<HistoryMove> history = new ArrayList<>(); // Stack lưu các trạng thái của ván đấu để có thể undo
+
+    // 50-move rule: Đếm số bán nước (halfmove) kể từ lần ăn quân hoặc di chuyển Tốt
+    // cuối cùng
+    int halfmoveClock = 0;
+
+    // Threefold Repetition: Lưu hash của vị trí bàn cờ và số lần xuất hiện
+    HashMap<String, Integer> positionHistory = new HashMap<>();
 
     public GamePanel() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -92,7 +100,7 @@ public class GamePanel extends JPanel implements Runnable {
     // Thiết lập ván đấu dựa trên cài đặt nhận được
     public void setupGame(GameSettings settings) {
         this.settings = settings;
-        
+
         // Reset toàn bộ quân cờ và lịch sử các nước đi
         setPieces();
         copyPieces(pieces, simPieces);
@@ -100,18 +108,21 @@ public class GamePanel extends JPanel implements Runnable {
         moveList.clear();
         history.clear();
         historyScrollIndex = 0;
-        
+
         // Thiết lập thời gian
         // Nếu timeLimit = -1 (Không giới hạn) thì ta không quan tâm giá trị khởi tạo
         this.whiteTime = settings.timeLimit;
         this.blackTime = settings.timeLimit;
         this.lastTimerTime = System.nanoTime();
-        
+
         // Reset trạng thái game
         currentColor = WHITE;
         activeP = null;
         promotion = false;
         gameOver = false;
+        halfmoveClock = 0; // Reset đếm 50-move rule
+        positionHistory.clear(); // Reset lịch sử vị trí
+        updatePositionHistory(); // Thêm vị trí khởi đầu vào lịch sử
     }
 
     public void setPieces() {
@@ -121,29 +132,29 @@ public class GamePanel extends JPanel implements Runnable {
         capturedPieces.clear();
 
         // Bên trắng
-        pieces.add (new piece.Rook(0, 7, WHITE));
-        pieces.add (new piece.Knight(1, 7, WHITE));
-        pieces.add (new piece.Bishop(2, 7, WHITE));
-        pieces.add (new piece.Queen(3, 7, WHITE));
-        pieces.add (new piece.King(4, 7, WHITE));
-        pieces.add (new piece.Bishop(5, 7, WHITE));
-        pieces.add (new piece.Knight(6, 7, WHITE));
-        pieces.add (new piece.Rook(7, 7, WHITE));
+        pieces.add(new piece.Rook(0, 7, WHITE));
+        pieces.add(new piece.Knight(1, 7, WHITE));
+        pieces.add(new piece.Bishop(2, 7, WHITE));
+        pieces.add(new piece.Queen(3, 7, WHITE));
+        pieces.add(new piece.King(4, 7, WHITE));
+        pieces.add(new piece.Bishop(5, 7, WHITE));
+        pieces.add(new piece.Knight(6, 7, WHITE));
+        pieces.add(new piece.Rook(7, 7, WHITE));
         for (int i = 0; i < 8; i++) {
-            pieces.add (new piece.Pawn(i, 6, WHITE));
+            pieces.add(new piece.Pawn(i, 6, WHITE));
         }
 
         // Bên đen
-        pieces.add (new piece.Rook(0, 0, BLACK));
-        pieces.add (new piece.Knight(1, 0, BLACK));
-        pieces.add (new piece.Bishop(2, 0, BLACK));
-        pieces.add (new piece.Queen(3, 0, BLACK));
-        pieces.add (new piece.King(4, 0, BLACK));
-        pieces.add (new piece.Bishop(5, 0, BLACK));
-        pieces.add (new piece.Knight(6, 0, BLACK));
-        pieces.add (new piece.Rook(7, 0, BLACK));
+        pieces.add(new piece.Rook(0, 0, BLACK));
+        pieces.add(new piece.Knight(1, 0, BLACK));
+        pieces.add(new piece.Bishop(2, 0, BLACK));
+        pieces.add(new piece.Queen(3, 0, BLACK));
+        pieces.add(new piece.King(4, 0, BLACK));
+        pieces.add(new piece.Bishop(5, 0, BLACK));
+        pieces.add(new piece.Knight(6, 0, BLACK));
+        pieces.add(new piece.Rook(7, 0, BLACK));
         for (int i = 0; i < 8; i++) {
-            pieces.add (new piece.Pawn(i, 1, BLACK));
+            pieces.add(new piece.Pawn(i, 1, BLACK));
         }
     }
 
@@ -182,7 +193,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         // Sao chép danh sách quân cờ hiện tại
         state.pieceList = new ArrayList<>();
-        for (Piece piece: pieces) {
+        for (Piece piece : pieces) {
             Piece copy = piece.getCopy();
             // Nếu là quân đang di chuyển thì sao chép vị trí trước đó
             if (piece == activeP) {
@@ -196,7 +207,7 @@ public class GamePanel extends JPanel implements Runnable {
 
         // Sao chép danh sách quân bị ăn
         state.capturedList = new ArrayList<>();
-        for (Piece piece: capturedPieces) {
+        for (Piece piece : capturedPieces) {
             state.capturedList.add(piece.getCopy());
         }
 
@@ -239,7 +250,7 @@ public class GamePanel extends JPanel implements Runnable {
             currentColor = prevState.turn;
             castlingP = prevState.castlingP;
 
-            for (Piece piece: pieces) {
+            for (Piece piece : pieces) {
                 piece.x = piece.getX(piece.col);
                 piece.y = piece.getY(piece.row);
             }
@@ -263,8 +274,9 @@ public class GamePanel extends JPanel implements Runnable {
     // Xử lý cuộn lịch sử nước đi
     private void handleScroll(MouseWheelEvent e) {
         int totalLines = (int) Math.ceil(moveList.size() / 2.0);
-        int maxLines = (settings.timeLimit == -1) ? 12 : 8; // Số dòng tối đa hiển thị dựa trên việc có đồng hồ hay không
-        
+        int maxLines = (settings.timeLimit == -1) ? 12 : 8; // Số dòng tối đa hiển thị dựa trên việc có đồng hồ hay
+                                                            // không
+
         if (totalLines > maxLines) {
             // Lăn xuống (e.getWheelRotation() > 0) hoặc lăn lên
             int newIndex = historyScrollIndex + e.getWheelRotation();
@@ -275,67 +287,31 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    // Ghi lại lịch sử nước đi
+    // Ghi lại lịch sử nước đi (Format truyền thống: E2E4)
     private void logMove(Piece p, Piece captured, Piece promoteTo) {
-        String notation = "";
-        
-        // Kiểm tra Nhập thành (Ghi đè notation nếu là nhập thành)
-        if (castlingP != null) {
-            if (p.col == 6) { // Vua di chuyển 2 ô
-                 notation = "O-O";
-            }
-            else if (p.col == 2) {
-                 notation = "O-O-O";
-            }
-        }
-        else {
-            // Tên quân (Tốt không ghi tên, Mã = N, Tượng = B...)
-            if (p.type == Type.KNIGHT) notation += "N";
-            else if (p.type == Type.BISHOP) notation += "B";
-            else if (p.type == Type.ROOK) notation += "R";
-            else if (p.type == Type.QUEEN) notation += "Q";
-            else if (p.type == Type.KING) notation += "K";
+        // Định dạng: [Tọa độ xuất phát][Tọa độ đích][Ký hiệu phong cấp nếu có]
+        String from = board.getSquareCoordinates(p.preCol, p.preRow).toUpperCase();
+        String to = board.getSquareCoordinates(p.col, p.row).toUpperCase();
+        String notation = from + to;
 
-            // Nếu ăn quân -> Thêm "x"
-            if (captured != null) {
-                if (p.type == Type.PAWN) {
-                    notation += board.getSquareCoordinates(p.preCol, p.preRow).substring(0, 1);
-                }
-                notation += "x";
-            }
-            
-            // Tọa độ đích (VD: e5)
-            notation += board.getSquareCoordinates(p.col, p.row);
-
-            // Nếu phong cấp
-            if (promoteTo != null) {
-                notation += "=";
-                if (promoteTo.type == Type.QUEEN) notation += "Q";
-                else if (promoteTo.type == Type.ROOK) notation += "R";
-                else if (promoteTo.type == Type.BISHOP) notation += "B";
-                else if (promoteTo.type == Type.KNIGHT) notation += "N";
-            }
+        // Nếu phong cấp, thêm ký hiệu
+        if (promoteTo != null) {
+            if (promoteTo.type == Type.QUEEN)
+                notation += "Q";
+            else if (promoteTo.type == Type.ROOK)
+                notation += "R";
+            else if (promoteTo.type == Type.BISHOP)
+                notation += "B";
+            else if (promoteTo.type == Type.KNIGHT)
+                notation += "N";
         }
 
-        // Kiểm tra chiếu và chiếu hết
-        int opponentColor = (p.color == WHITE) ? BLACK : WHITE;
-        if (isKingInCheck(opponentColor)) {
-            if (isCheckmate()) {
-                notation += "#"; // Chiếu hết
-            } else {
-                notation += "+"; // Chiếu
-            }
-        } else {
-            if (isStalemate()) {
-                notation += "½-½"; // Hòa
-            }
-        }
-        
         moveList.add(notation);
-        
+
         // Tự động cuộn xuống cuối cùng
         int totalLines = (int) Math.ceil(moveList.size() / 2.0);
-        int maxLines = (settings.timeLimit == -1) ? 12 : 8; // Số dòng tối đa hiển thị dựa trên việc có đồng hồ hay không
+        int maxLines = (settings.timeLimit == -1) ? 12 : 8; // Số dòng tối đa hiển thị dựa trên việc có đồng hồ hay
+                                                            // không
         if (totalLines > maxLines) {
             historyScrollIndex = totalLines - maxLines;
         }
@@ -390,14 +366,16 @@ public class GamePanel extends JPanel implements Runnable {
             if (mouse.pressed) {
                 if (activeP == null) {
                     // Trong trường hợp activeP là null, kiểm tra xem có quân cờ nào được chọn không
-                    for (Piece piece: simPieces) {
+                    for (Piece piece : simPieces) {
                         // Chỉ được chọn quân cờ của màu hiện tại
-                        if (piece.color == currentColor && piece.col == mouse.x / Board.SQUARE_SIZE && piece.row == mouse.y / Board.SQUARE_SIZE) {
+                        if (piece.color == currentColor && piece.col == mouse.x / Board.SQUARE_SIZE
+                                && piece.row == mouse.y / Board.SQUARE_SIZE) {
                             activeP = piece;
                         }
                     }
                 } else {
-                    // Player đang giữ quân cờ. Trong trường hợp này player có thể đưa ra nước đi mô phỏng
+                    // Player đang giữ quân cờ. Trong trường hợp này player có thể đưa ra nước đi mô
+                    // phỏng
                     simulate();
                 }
             }
@@ -407,7 +385,7 @@ public class GamePanel extends JPanel implements Runnable {
                 if (activeP != null) {
                     // Thả quân cờ xuống. Cập nhật vị trí cuối cùng của quân cờ
                     if (validSquare) {
-                        saveState();    // Lưu trạng thái hiện tại trước khi thực hiện nước đi
+                        saveState(); // Lưu trạng thái hiện tại trước khi thực hiện nước đi
 
                         // Lưu lại quân bị ăn (nếu có) để ghi lịch sử nước đi
                         Piece capturedP = activeP.hittingP;
@@ -429,7 +407,14 @@ public class GamePanel extends JPanel implements Runnable {
                         // Kiểm tra quân Vua có đang bị chiếu không? Kiểm tra trường hợp chiếu hết
                         if (isKingInCheck(currentColor)) {
                             undo(); // Hoàn tác nước đi
-                        } else {    // Nước đi hợp lệ
+                        } else { // Nước đi hợp lệ
+                            // Cập nhật halfmoveClock cho 50-move rule
+                            if (activeP.type == Type.PAWN || capturedP != null) {
+                                halfmoveClock = 0; // Reset nếu Tốt di chuyển hoặc có ăn quân
+                            } else {
+                                halfmoveClock++; // Tăng lên nếu không phải Tốt và không ăn quân
+                            }
+
                             // Nếu có quân phong cấp
                             if (canPromote()) {
                                 promotion = true;
@@ -454,7 +439,8 @@ public class GamePanel extends JPanel implements Runnable {
         canMove = false;
         validSquare = false;
 
-        // Mỗi vòng lặp sẽ cập nhật lại số quân cờ hiện có (Nhằm quay lại các nước đi đang thử nghiệm)
+        // Mỗi vòng lặp sẽ cập nhật lại số quân cờ hiện có (Nhằm quay lại các nước đi
+        // đang thử nghiệm)
         copyPieces(pieces, simPieces);
 
         // Reset vị trí nhập thành của các quân cờ
@@ -490,17 +476,17 @@ public class GamePanel extends JPanel implements Runnable {
     // Class lưu trạng thái 1 nước cờ (Snapshot)
     class HistoryMove {
         ArrayList<Piece> pieceList; // Danh sách quân trên bàn
-        ArrayList<Piece> capturedList;  // Danh sách quân bị ăn
-        int wTime, bTime;   // Thời gian
-        int turn;   // Lượt đi
-        Piece castlingP;    // Trạng thái nhập thành
+        ArrayList<Piece> capturedList; // Danh sách quân bị ăn
+        int wTime, bTime; // Thời gian
+        int turn; // Lượt đi
+        Piece castlingP; // Trạng thái nhập thành
     }
 
     // Logic đánh cờ của AI (Chọn nước đi ngẫu nhiên trong các nước đi hợp lệ)
     private void performAIMove() {
         // Lấy danh sách quân của AI
         ArrayList<Piece> myPieces = new ArrayList<>();
-        for (Piece piece: simPieces) {
+        for (Piece piece : simPieces) {
             if (piece.color == currentColor) {
                 myPieces.add(piece);
             }
@@ -510,6 +496,7 @@ public class GamePanel extends JPanel implements Runnable {
         class Move {
             Piece piece;
             int col, row;
+
             Move(Piece piece, int col, int row) {
                 this.piece = piece;
                 this.col = col;
@@ -519,28 +506,31 @@ public class GamePanel extends JPanel implements Runnable {
         ArrayList<Move> validMoves = new ArrayList<>();
 
         // Duyệt qua từng quân cờ
-        for (Piece piece: myPieces) {
+        for (Piece piece : myPieces) {
             for (int row = 0; row < 8; row++) {
                 for (int col = 0; col < 8; col++) {
                     if (piece.canMove(col, row)) {
                         int oldCol = piece.col;
                         int oldRow = piece.row;
                         Piece hit = piece.hittingP;
-                        
+
                         piece.col = col;
                         piece.row = row;
 
                         // Xóa quân bị ăn khỏi bàn cờ giả lập
-                        if (hit != null) simPieces.remove(hit);
-                        
+                        if (hit != null)
+                            simPieces.remove(hit);
+
                         // Kiểm tra nước đi có hợp lệ không (không bị chiếu)
                         if (!isIllegal(piece)) {
                             validMoves.add(new Move(piece, col, row));
                         }
-                        
+
                         // Hoàn tác giả lập
-                        piece.col = oldCol; piece.row = oldRow;
-                        if (hit != null) simPieces.add(hit);
+                        piece.col = oldCol;
+                        piece.row = oldRow;
+                        if (hit != null)
+                            simPieces.add(hit);
                     }
                 }
             }
@@ -550,15 +540,15 @@ public class GamePanel extends JPanel implements Runnable {
         if (validMoves.size() > 0) {
             Random rand = new Random();
             Move bestMove = validMoves.get(rand.nextInt(validMoves.size()));
-            
+
             // Thực hiện nước đi
             activeP = bestMove.piece;
-            saveState();    // Lưu trạng thái hiện tại trước khi thực hiện nước đi
+            saveState(); // Lưu trạng thái hiện tại trước khi thực hiện nước đi
             activeP.col = bestMove.col;
             activeP.row = bestMove.row;
             activeP.x = activeP.getX(activeP.col);
             activeP.y = activeP.getY(activeP.row);
-            
+
             // Ăn quân
             Piece capturedP = activeP.getHittingP(activeP.col, activeP.row);
             if (capturedP != null) {
@@ -566,11 +556,11 @@ public class GamePanel extends JPanel implements Runnable {
                 pieces.remove(capturedP);
                 simPieces.remove(capturedP);
             }
-            
+
             // Cập nhật vị trí
             activeP.updatePosition();
             copyPieces(simPieces, pieces);
-            
+
             if (canPromote()) {
                 promoPieces.clear();
                 promoPieces.add(new Queen(9, 9, currentColor));
@@ -589,7 +579,7 @@ public class GamePanel extends JPanel implements Runnable {
     private void changedToGraveyard(Piece capturedP) {
         // Chuyển quân cờ bị ăn vào danh sách capturedPieces
         int count = 0;
-        for (Piece piece: capturedPieces) {
+        for (Piece piece : capturedPieces) {
             if (piece.color == capturedP.color) {
                 count++;
             }
@@ -618,11 +608,11 @@ public class GamePanel extends JPanel implements Runnable {
         // Tìm vị trí Vua của phe cần check
         Piece King = getKing(kingColor);
 
-        for (Piece piece: simPieces) {
+        for (Piece piece : simPieces) {
             // Duyệt qua tất cả các quân cờ trên bàn. Chỉ quan tâm quân đối phương
             if (piece.color != kingColor) {
                 if (piece.canMove(King.col, King.row)) {
-                    checkingP = piece;    // Xác định quân đang chiếu là quân nào (Không nhất thiết phải là activeP chiếu)
+                    checkingP = piece; // Xác định quân đang chiếu là quân nào (Không nhất thiết phải là activeP chiếu)
                     return true;
                 }
             }
@@ -632,7 +622,7 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private Piece getKing(int color) {
-        for (Piece piece: simPieces) {
+        for (Piece piece : simPieces) {
             if (piece.type == Type.KING && piece.color == color) {
                 return piece;
             }
@@ -651,7 +641,7 @@ public class GamePanel extends JPanel implements Runnable {
                 castlingP.col -= 2;
             }
 
-            castlingP.x = castlingP.getX(castlingP.col); 
+            castlingP.x = castlingP.getX(castlingP.col);
         }
     }
 
@@ -660,7 +650,7 @@ public class GamePanel extends JPanel implements Runnable {
         if (currentColor == WHITE) {
             currentColor = BLACK;
             // Reset En Passant
-            for (Piece piece: pieces) {
+            for (Piece piece : pieces) {
                 if (piece.color == BLACK) {
                     piece.twoStepped = false;
                 }
@@ -668,18 +658,33 @@ public class GamePanel extends JPanel implements Runnable {
         } else {
             currentColor = WHITE;
             // Reset En Passant
-            for (Piece piece: pieces) {
+            for (Piece piece : pieces) {
                 if (piece.color == WHITE) {
                     piece.twoStepped = false;
                 }
             }
         }
 
+        // Cập nhật vị trí hiện tại vào lịch sử
+        updatePositionHistory();
+
+        // Kiểm tra các điều kiện hòa cờ
+        if (halfmoveClock >= 100) { // 50 full moves = 100 halfmoves
+            gameOver = true;
+            showGameOverDialog("HÒA CỜ - LUẬT 50 NƯỚC!");
+            return;
+        }
+
+        if (isThreefoldRepetition()) {
+            gameOver = true;
+            showGameOverDialog("HÒA CỜ - LẶP LẠI 3 LẦN!");
+            return;
+        }
+
         if (isCheckmate()) {
             gameOver = true;
             showGameOverDialog("CHECKMATE!");
-        }
-        else if (isStalemate()) {
+        } else if (isStalemate()) {
             gameOver = true;
             showGameOverDialog("STALEMATE!");
         }
@@ -711,26 +716,31 @@ public class GamePanel extends JPanel implements Runnable {
 
             // Kiểm tra xem con chuột click vào góc phần tư nào
             // Góc Trái-Trên (Tượng)
-            if (mouse.x >= x && mouse.x < x + Board.HALF_SQUARE_SIZE && mouse.y >= y && mouse.y < y + Board.HALF_SQUARE_SIZE) {
+            if (mouse.x >= x && mouse.x < x + Board.HALF_SQUARE_SIZE && mouse.y >= y
+                    && mouse.y < y + Board.HALF_SQUARE_SIZE) {
                 replacePawn(promoPieces.get(0));
             }
             // Góc Phải-Trên (Mã)
-            else if (mouse.x >= x + Board.HALF_SQUARE_SIZE && mouse.x < x + Board.SQUARE_SIZE && mouse.y >= y && mouse.y < y + Board.HALF_SQUARE_SIZE) {
+            else if (mouse.x >= x + Board.HALF_SQUARE_SIZE && mouse.x < x + Board.SQUARE_SIZE && mouse.y >= y
+                    && mouse.y < y + Board.HALF_SQUARE_SIZE) {
                 replacePawn(promoPieces.get(1));
             }
             // Góc Trái-Dưới (Hậu)
-            else if (mouse.x >= x && mouse.x < x + Board.HALF_SQUARE_SIZE && mouse.y >= y + Board.HALF_SQUARE_SIZE && mouse.y < y + Board.SQUARE_SIZE) {
+            else if (mouse.x >= x && mouse.x < x + Board.HALF_SQUARE_SIZE && mouse.y >= y + Board.HALF_SQUARE_SIZE
+                    && mouse.y < y + Board.SQUARE_SIZE) {
                 replacePawn(promoPieces.get(2));
             }
             // Góc Phải-Dưới (Xe)
-            else if (mouse.x >= x + Board.HALF_SQUARE_SIZE && mouse.x < x + Board.SQUARE_SIZE && mouse.y >= y + Board.HALF_SQUARE_SIZE && mouse.y < y + Board.SQUARE_SIZE) {
+            else if (mouse.x >= x + Board.HALF_SQUARE_SIZE && mouse.x < x + Board.SQUARE_SIZE
+                    && mouse.y >= y + Board.HALF_SQUARE_SIZE && mouse.y < y + Board.SQUARE_SIZE) {
                 replacePawn(promoPieces.get(3));
             }
         }
     }
 
     private void replacePawn(Piece promoPiece) {
-        // Gán toạ độ quân mới trùng với quân Tốt (promoPiece này là quân đã chọn, khác với promoPieces là array list bao gồm các quân có thể chọn khi phong cấp)
+        // Gán toạ độ quân mới trùng với quân Tốt (promoPiece này là quân đã chọn, khác
+        // với promoPieces là array list bao gồm các quân có thể chọn khi phong cấp)
         promoPiece.col = activeP.col;
         promoPiece.row = activeP.row;
         promoPiece.x = activeP.x;
@@ -746,14 +756,14 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         // Xoá quân Tốt cũ khỏi list pieces và simPieces
-        int index = pieces.indexOf(activeP);    // Tìm index của Pawn cũ
+        int index = pieces.indexOf(activeP); // Tìm index của Pawn cũ
         if (index != -1) {
-            pieces.set(index, promoPiece);  // Thay thế trong list chính
-            simPieces.set(index, promoPiece);   // Thay thế trong list mô phỏng
+            pieces.set(index, promoPiece); // Thay thế trong list chính
+            simPieces.set(index, promoPiece); // Thay thế trong list mô phỏng
         }
 
         logMove(activeP, capturedRef, promoPiece); // Ghi lại lịch sử nước đi
-        
+
         // Kết thúc phong cấp
         promotion = false;
         activeP = null; // Reset lựa chọn
@@ -763,15 +773,15 @@ public class GamePanel extends JPanel implements Runnable {
     private boolean isCheckmate() {
         // Phương thức kiểm tra chiếu hết
         if (!isKingInCheck(currentColor)) {
-            return false;   // Không bị chiếu thì không thể chiếu hết
+            return false; // Không bị chiếu thì không thể chiếu hết
         }
 
         ArrayList<Piece> testPieces = new ArrayList<>();
-        for (Piece piece: simPieces) {
+        for (Piece piece : simPieces) {
             testPieces.add(piece);
         }
 
-        for (Piece piece: testPieces) {
+        for (Piece piece : testPieces) {
             if (piece.color != currentColor) {
                 continue;
             }
@@ -793,7 +803,7 @@ public class GamePanel extends JPanel implements Runnable {
                         piece.row = targetRow;
 
                         ArrayList<Piece> tempList = new ArrayList<>();
-                        for (Piece p: simPieces) {
+                        for (Piece p : simPieces) {
                             if (p != capturedPiece) {
                                 tempList.add(p);
                             }
@@ -820,7 +830,7 @@ public class GamePanel extends JPanel implements Runnable {
             piece.row = originalRow;
         }
 
-        return true;    // Không tìm được nước thoát chiếu, chiếu hết
+        return true; // Không tìm được nước thoát chiếu, chiếu hết
     }
 
     private boolean isStalemate() {
@@ -828,32 +838,32 @@ public class GamePanel extends JPanel implements Runnable {
         if (isKingInCheck(currentColor)) {
             return false; // Đang bị chiếu thì không phải stalemate
         }
-        
+
         // Tạo bản sao để tránh ConcurrentModificationException
         ArrayList<Piece> testPieces = new ArrayList<>();
         for (Piece p : simPieces) {
             testPieces.add(p);
         }
-        
+
         // Kiểm tra xem có nước đi hợp lệ nào không
-        for (Piece piece: testPieces) {
+        for (Piece piece : testPieces) {
             if (piece.color != currentColor) {
                 continue;
             }
-            
+
             int originalCol = piece.col;
             int originalRow = piece.row;
-            
+
             for (int targetCol = 0; targetCol < 8; targetCol++) {
                 for (int targetRow = 0; targetRow < 8; targetRow++) {
                     if (piece.canMove(targetCol, targetRow)) {
                         Piece capturedPiece = piece.hittingP;
                         int tempCol = piece.col;
                         int tempRow = piece.row;
-                        
+
                         piece.col = targetCol;
                         piece.row = targetRow;
-                        
+
                         // Tạo list tạm để kiểm tra
                         ArrayList<Piece> tempList = new ArrayList<>();
                         for (Piece p : simPieces) {
@@ -861,51 +871,106 @@ public class GamePanel extends JPanel implements Runnable {
                                 tempList.add(p);
                             }
                         }
-                        
+
                         // Backup và thay thế tạm thời
                         ArrayList<Piece> backupSimPieces = simPieces;
                         simPieces = tempList;
                         boolean wouldBeInCheck = isKingInCheck(currentColor);
                         simPieces = backupSimPieces;
-                        
+
                         piece.col = tempCol;
                         piece.row = tempRow;
-                        
+
                         if (!wouldBeInCheck) {
                             return false; // Có nước đi hợp lệ
                         }
                     }
                 }
             }
-            
+
             piece.col = originalCol;
             piece.row = originalRow;
         }
-        
+
         return true; // Không có nước đi hợp lệ → Stalemate
+    }
+
+    // Tạo hash của vị trí bàn cờ hiện tại (FEN-like)
+    private String getPositionHash() {
+        StringBuilder hash = new StringBuilder();
+        // Duyệt qua tất cả quân cờ và ghi lại vị trí
+        for (int row = 0; row < 8; row++) {
+            for (int col = 0; col < 8; col++) {
+                Piece p = null;
+                for (Piece piece : simPieces) {
+                    if (piece.col == col && piece.row == row) {
+                        p = piece;
+                        break;
+                    }
+                }
+                if (p == null) {
+                    hash.append('.');
+                } else {
+                    // Mã hóa: w=white, b=black; P=Pawn, R=Rook, N=Knight, B=Bishop, Q=Queen, K=King
+                    char colorChar = (p.color == WHITE) ? 'w' : 'b';
+                    char typeChar = ' ';
+                    if (p.type == Type.PAWN)
+                        typeChar = 'P';
+                    else if (p.type == Type.ROOK)
+                        typeChar = 'R';
+                    else if (p.type == Type.KNIGHT)
+                        typeChar = 'N';
+                    else if (p.type == Type.BISHOP)
+                        typeChar = 'B';
+                    else if (p.type == Type.QUEEN)
+                        typeChar = 'Q';
+                    else if (p.type == Type.KING)
+                        typeChar = 'K';
+                    hash.append(colorChar).append(typeChar);
+                }
+            }
+        }
+        // Thêm thông tin lượt đi
+        hash.append('|').append(currentColor);
+        return hash.toString();
+    }
+
+    // Cập nhật lịch sử vị trí
+    private void updatePositionHistory() {
+        String posHash = getPositionHash();
+        positionHistory.put(posHash, positionHistory.getOrDefault(posHash, 0) + 1);
+    }
+
+    // Kiểm tra lặp lại 3 lần
+    private boolean isThreefoldRepetition() {
+        String currentHash = getPositionHash();
+        return positionHistory.getOrDefault(currentHash, 0) >= 3;
     }
 
     private void showGameOverDialog(String reason) {
         String winner = (currentColor == WHITE) ? "BLACK WINS!" : "WHITE WINS!";
-        
+
         // Xử lý thông báo thắng thua cụ thể
         if (reason.equals("TIME OUT!")) {
-             if (whiteTime <= 0) winner = "BLACK WINS!";
-             else winner = "WHITE WINS!";
+            if (whiteTime <= 0)
+                winner = "BLACK WINS!";
+            else
+                winner = "WHITE WINS!";
         } else if (reason.contains("STALEMATE")) {
-             winner = "DRAW!";
+            winner = "DRAW!";
         }
 
         String message = reason + "\n" + winner + "\nBạn muốn làm gì?";
-        Object[] options = {"Chơi lại", "Về Menu"};
+        Object[] options = { "Chơi lại", "Về Menu" };
 
-        int choice = JOptionPane.showOptionDialog(Main.instance, message, "Kết thúc trận đấu", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
+        int choice = JOptionPane.showOptionDialog(Main.instance, message, "Kết thúc trận đấu",
+                JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
 
         // Rematch
         if (choice == 0) {
             setupGame(this.settings);
             launchGame();
-        } else {    // Menu
+        } else { // Menu
             gameThread = null;
             Main.instance.returnToMenu();
         }
@@ -929,12 +994,12 @@ public class GamePanel extends JPanel implements Runnable {
         drawSidebarInfo(g2);
 
         // Vẽ quân cờ
-        for (Piece piece: simPieces) {
+        for (Piece piece : simPieces) {
             piece.draw(g2);
         }
 
         // Vẽ các quân cờ đã bị ăn
-        for (Piece piece: capturedPieces) {
+        for (Piece piece : capturedPieces) {
             piece.draw(g2, Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE);
         }
 
@@ -944,10 +1009,11 @@ public class GamePanel extends JPanel implements Runnable {
                 g2.setColor(isIllegal(activeP) ? Color.red : Color.gray);
                 g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.7f));
                 // Cộng 1 pixel khi tô để tránh hở nền
-                g2.fillRect(activeP.col * Board.SQUARE_SIZE, activeP.row * Board.SQUARE_SIZE, Board.SQUARE_SIZE + 1, Board.SQUARE_SIZE + 1);
+                g2.fillRect(activeP.col * Board.SQUARE_SIZE, activeP.row * Board.SQUARE_SIZE, Board.SQUARE_SIZE + 1,
+                        Board.SQUARE_SIZE + 1);
                 g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1f));
             }
-            
+
             // Vẽ lại quân cờ đang được chọn lên trên cùng
             activeP.draw(g2);
         }
@@ -956,7 +1022,7 @@ public class GamePanel extends JPanel implements Runnable {
         if (promotion && activeP != null) {
             // Tối ưu render hình ảnh
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            
+
             int x = activeP.col * Board.SQUARE_SIZE;
             int y = activeP.row * Board.SQUARE_SIZE;
 
@@ -966,20 +1032,23 @@ public class GamePanel extends JPanel implements Runnable {
 
             // Vẽ 4 quân cờ thu nhỏ vào 4 góc
             g2.drawImage(promoPieces.get(0).image, x, y, Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, null);
-            g2.drawImage(promoPieces.get(1).image, x + Board.HALF_SQUARE_SIZE, y, Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, null);
-            g2.drawImage(promoPieces.get(2).image, x, y + Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, null);
-            g2.drawImage(promoPieces.get(3).image, x + Board.HALF_SQUARE_SIZE, y + Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, null);
+            g2.drawImage(promoPieces.get(1).image, x + Board.HALF_SQUARE_SIZE, y, Board.HALF_SQUARE_SIZE,
+                    Board.HALF_SQUARE_SIZE, null);
+            g2.drawImage(promoPieces.get(2).image, x, y + Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE,
+                    Board.HALF_SQUARE_SIZE, null);
+            g2.drawImage(promoPieces.get(3).image, x + Board.HALF_SQUARE_SIZE, y + Board.HALF_SQUARE_SIZE,
+                    Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, null);
         }
     }
 
     private void drawGraveyardZone(Graphics2D g2) {
         int gx = 640;
         int gw = 80;
-        
+
         // Nền chung
         g2.setColor(new Color(45, 45, 45)); // Xám đậm
         g2.fillRect(gx, 0, gw, 640);
-        
+
         // Vạch ngăn cách với bàn cờ
         g2.setColor(Color.black);
         g2.drawLine(gx, 0, gx, 640);
@@ -987,7 +1056,7 @@ public class GamePanel extends JPanel implements Runnable {
         // NÚT UNDO (Cố định ở đáy: 600-640)
         int btnY = 600;
         int btnH = 40;
-        
+
         // Hiệu ứng hover cho nút Undo
         if (mouse.x >= gx && mouse.x <= gx + gw && mouse.y >= btnY && mouse.y <= btnY + btnH) {
             g2.setColor(new Color(70, 70, 70)); // Sáng hơn khi hover
@@ -995,23 +1064,23 @@ public class GamePanel extends JPanel implements Runnable {
             g2.setColor(new Color(55, 55, 55)); // Màu thường
         }
         g2.fillRect(gx, btnY, gw, btnH);
-        
+
         // Viền nút
         g2.setColor(Color.gray);
         g2.drawRect(gx, btnY, gw - 1, btnH - 1); // -1 để viền nằm trong
-        
+
         // Vẽ Icon Mũi tên quay lại (↺)
         g2.setColor(Color.white);
         g2.setStroke(new BasicStroke(2)); // Nét dày
         g2.drawArc(gx + 30, btnY + 10, 20, 20, 0, 270); // Vòng cung hở
-        
+
     }
 
     private void drawSidebarInfo(Graphics2D g2) {
         int sx = 720;
         int sw = 160;
         boolean hasLimit = (settings.timeLimit != -1);
-        
+
         // Nền Sidebar
         g2.setColor(new Color(30, 30, 30)); // Đen xám
         g2.fillRect(sx, 0, sw, 640);
@@ -1020,56 +1089,59 @@ public class GamePanel extends JPanel implements Runnable {
 
         // BLACK INFO (TOP)
         int hInfo = hasLimit ? 160 : 80;
-        drawInfoBox(g2, sx, 0, sw, hInfo, settings.p1Color == BLACK ? settings.p1Name : settings.p2Name, blackTime, false);
-        
+        drawInfoBox(g2, sx, 0, sw, hInfo, settings.p1Color == BLACK ? settings.p1Name : settings.p2Name, blackTime,
+                false);
+
         // WHITE INFO (BOTTOM)
-        drawInfoBox(g2, sx, 640 - hInfo, sw, hInfo, settings.p1Color == WHITE ? settings.p1Name : settings.p2Name, whiteTime, true);
-        
+        drawInfoBox(g2, sx, 640 - hInfo, sw, hInfo, settings.p1Color == WHITE ? settings.p1Name : settings.p2Name,
+                whiteTime, true);
+
         // MOVE HISTORY (MIDDLE)
         int hy = hInfo; // Bắt đầu sau Info Đen
         int hh = 640 - (hInfo * 2); // Chiều cao còn lại
-        
+
         // Tiêu đề bảng
         g2.setColor(new Color(20, 20, 20));
         g2.fillRect(sx, hy, sw, hh);
         g2.setColor(Color.gray);
         g2.drawRect(sx, hy, sw - 1, hh - 1); // Khung viền
-        
+
         // Vẽ lưới (Grid Lines)
         int rowH = 40;
         int colW = 80;
         g2.setColor(new Color(50, 50, 50));
         // Kẻ dọc ở giữa
         g2.drawLine(sx + colW, hy, sx + colW, hy + hh);
-        
+
         // Vẽ nội dung Text
         g2.setFont(new Font("Consolas", Font.PLAIN, 16));
         g2.setColor(Color.white);
-        
+
         int totalVisualLines = (int) Math.ceil(moveList.size() / 2.0);
         int maxLines = hh / rowH;
-        
+
         for (int i = 0; i < maxLines; i++) {
             int lineIdx = historyScrollIndex + i;
-            if (lineIdx >= totalVisualLines) break;
-            
+            if (lineIdx >= totalVisualLines)
+                break;
+
             int yText = hy + (i * rowH) + 25; // Căn giữa dòng
-            
+
             // White Move (Cột trái)
             if (lineIdx * 2 < moveList.size()) {
                 String s = moveList.get(lineIdx * 2);
                 g2.drawString(s, sx + 10, yText);
             }
-            
+
             // Black Move (Cột phải)
             if (lineIdx * 2 + 1 < moveList.size()) {
                 String s = moveList.get(lineIdx * 2 + 1);
                 g2.drawString(s, sx + colW + 10, yText);
             }
-            
+
             // Kẻ ngang dưới mỗi dòng
             g2.setColor(new Color(50, 50, 50));
-            g2.drawLine(sx, hy + (i+1)*rowH, sx + sw, hy + (i+1)*rowH);
+            g2.drawLine(sx, hy + (i + 1) * rowH, sx + sw, hy + (i + 1) * rowH);
             g2.setColor(Color.white); // Reset màu chữ
         }
     }
@@ -1080,19 +1152,19 @@ public class GamePanel extends JPanel implements Runnable {
         g2.fillRect(x, y, w, h);
         g2.setColor(Color.gray);
         g2.drawRect(x, y, w - 1, h - 1);
-        
+
         // Tên
         g2.setColor(isWhite ? Color.white : Color.black);
         g2.setFont(new Font("Arial", Font.BOLD, 18));
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(name, x + (w - fm.stringWidth(name))/2, y + 30);
-        
+        g2.drawString(name, x + (w - fm.stringWidth(name)) / 2, y + 30);
+
         // Đồng hồ (Chỉ hiện nếu có time limit và đủ chỗ)
         if (settings.timeLimit != -1 && h > 100) {
-             g2.setFont(new Font("Impact", Font.PLAIN, 40));
-             String tStr = dFormat.format(time / 60) + ":" + dFormat.format(time % 60);
-             fm = g2.getFontMetrics();
-             g2.drawString(tStr, x + (w - fm.stringWidth(tStr))/2, y + 100);
+            g2.setFont(new Font("Impact", Font.PLAIN, 40));
+            String tStr = dFormat.format(time / 60) + ":" + dFormat.format(time % 60);
+            fm = g2.getFontMetrics();
+            g2.drawString(tStr, x + (w - fm.stringWidth(tStr)) / 2, y + 100);
         }
     }
 }
