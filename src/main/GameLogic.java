@@ -124,11 +124,21 @@ public class GameLogic {
         state.pieceList = new ArrayList<>();
         for (Piece piece : pieces) {
             Piece copy = piece.getCopy();
+            // Reset activeP (King) về vị trí trước khi di chuyển
             if (piece == activeP) {
                 copy.col = piece.preCol;
                 copy.row = piece.preRow;
                 copy.x = piece.getX(copy.col);
                 copy.y = piece.getY(copy.row);
+                copy.moved = false; // Đánh dấu chưa di chuyển
+            }
+            // Reset castlingP (Rook) về vị trí trước khi nhập thành
+            if (castlingP != null && piece == castlingP) {
+                copy.col = piece.preCol;
+                copy.row = piece.preRow;
+                copy.x = piece.getX(copy.col);
+                copy.y = piece.getY(copy.row);
+                copy.moved = false; // Đánh dấu chưa di chuyển
             }
             state.pieceList.add(copy);
         }
@@ -300,16 +310,18 @@ public class GameLogic {
                 simPieces.remove(capturedP);
             }
 
-            activeP.updatePosition();
-            copyPieces(simPieces, pieces);
-
+            // Log move sẽ được thực hiện trước khi updatePosition
             if (canPromote()) {
                 promoPieces.clear();
                 promoPieces.add(new Queen(9, 9, currentColor));
-                replacePawn(promoPieces.get(0));
                 logMove(activeP, capturedP, promoPieces.get(0));
+                activeP.updatePosition();
+                copyPieces(simPieces, pieces);
+                replacePawn(promoPieces.get(0));
             } else {
                 logMove(activeP, capturedP, null);
+                activeP.updatePosition();
+                copyPieces(simPieces, pieces);
                 changePlayer();
             }
         } else {
@@ -403,6 +415,11 @@ public class GameLogic {
             return;
         }
 
+        if (isInsufficientMaterial()) {
+            gameOver = true;
+            return;
+        }
+
         if (isCheckmate()) {
             gameOver = true;
         } else if (isStalemate()) {
@@ -427,15 +444,22 @@ public class GameLogic {
     }
 
     public void replacePawn(Piece promoPiece) {
-        promoPiece.col = activeP.col;
-        promoPiece.row = activeP.row;
-        promoPiece.x = activeP.x;
-        promoPiece.y = activeP.y;
-        promoPiece.preCol = activeP.col;
-        promoPiece.preRow = activeP.row;
+        // Lưu vị trí gốc của Tốt trước khi thay đổi
+        int fromCol = activeP.preCol;
+        int fromRow = activeP.preRow;
+        int toCol = activeP.col;
+        int toRow = activeP.row;
+
+        promoPiece.col = toCol;
+        promoPiece.row = toRow;
+        // Sử dụng getX/getY để căn giữa quân cờ
+        promoPiece.x = promoPiece.getX(promoPiece.col);
+        promoPiece.y = promoPiece.getY(promoPiece.row);
+        promoPiece.preCol = toCol;
+        promoPiece.preRow = toRow;
 
         Piece capturedRef = null;
-        if (Math.abs(promoPiece.col - activeP.preCol) == 1) {
+        if (Math.abs(toCol - fromCol) == 1) {
             capturedRef = new Piece(0, 0, 0);
         }
 
@@ -445,7 +469,12 @@ public class GameLogic {
             simPieces.set(index, promoPiece);
         }
 
-        logMove(activeP, capturedRef, promoPiece);
+        // Sync simPieces với promoPiece mới để check detection chính xác
+        copyPieces(pieces, simPieces);
+
+        // Log với vị trí gốc và quân mới
+        logMoveWithCoords(fromCol, fromRow, toCol, toRow, capturedRef, promoPiece);
+
         promotion = false;
         activeP = null;
         changePlayer();
@@ -542,6 +571,70 @@ public class GameLogic {
         return true;
     }
 
+    /**
+     * Kiểm tra không đủ quân để chiếu hết (Insufficient Material)
+     * Các trường hợp hòa:
+     * - King vs King
+     * - King + Bishop vs King
+     * - King + Knight vs King
+     * - King + Bishop vs King + Bishop (cùng màu ô)
+     */
+    public boolean isInsufficientMaterial() {
+        int whitePieces = 0, blackPieces = 0;
+        int whiteBishops = 0, blackBishops = 0;
+        int whiteKnights = 0, blackKnights = 0;
+        int whiteBishopSquareColor = -1, blackBishopSquareColor = -1;
+
+        for (Piece piece : simPieces) {
+            if (piece.type == Type.KING)
+                continue; // Không đếm vua
+
+            if (piece.color == WHITE) {
+                whitePieces++;
+                if (piece.type == Type.BISHOP) {
+                    whiteBishops++;
+                    whiteBishopSquareColor = (piece.col + piece.row) % 2;
+                } else if (piece.type == Type.KNIGHT) {
+                    whiteKnights++;
+                }
+            } else {
+                blackPieces++;
+                if (piece.type == Type.BISHOP) {
+                    blackBishops++;
+                    blackBishopSquareColor = (piece.col + piece.row) % 2;
+                } else if (piece.type == Type.KNIGHT) {
+                    blackKnights++;
+                }
+            }
+        }
+
+        // King vs King
+        if (whitePieces == 0 && blackPieces == 0) {
+            return true;
+        }
+
+        // King + Bishop vs King hoặc King vs King + Bishop
+        if ((whitePieces == 1 && whiteBishops == 1 && blackPieces == 0) ||
+                (blackPieces == 1 && blackBishops == 1 && whitePieces == 0)) {
+            return true;
+        }
+
+        // King + Knight vs King hoặc King vs King + Knight
+        if ((whitePieces == 1 && whiteKnights == 1 && blackPieces == 0) ||
+                (blackPieces == 1 && blackKnights == 1 && whitePieces == 0)) {
+            return true;
+        }
+
+        // King + Bishop vs King + Bishop (cùng màu ô)
+        if (whitePieces == 1 && whiteBishops == 1 &&
+                blackPieces == 1 && blackBishops == 1 &&
+                whiteBishopSquareColor == blackBishopSquareColor) {
+            return true;
+        }
+
+        return false;
+    }
+
     public void logMove(Piece p, Piece captured, Piece promoteTo) {
         String from = board.getSquareCoordinates(p.preCol, p.preRow).toUpperCase();
         String to = board.getSquareCoordinates(p.col, p.row).toUpperCase();
@@ -556,6 +649,58 @@ public class GameLogic {
                 notation += "B";
             else if (promoteTo.type == Type.KNIGHT)
                 notation += "N";
+        }
+
+        // Sync simPieces từ pieces để kiểm tra chiếu chính xác
+        copyPieces(pieces, simPieces);
+
+        // Kiểm tra chiếu hết hoặc chiếu để thêm ký hiệu
+        // opponentColor là màu đối phương (người vừa bị di chuyển vào)
+        int opponentColor = (currentColor == WHITE) ? BLACK : WHITE;
+        if (isKingInCheck(opponentColor)) {
+            // Kiểm tra xem có phải checkmate không
+            // Tạm đổi currentColor để isCheckmate() kiểm tra đúng bên
+            int savedColor = currentColor;
+            currentColor = opponentColor;
+            if (isCheckmate()) {
+                notation += "#"; // Chiếu hết
+            } else {
+                notation += "+"; // Chiếu
+            }
+            currentColor = savedColor; // Khôi phục
+        }
+
+        moveList.add(notation);
+    }
+
+    // Overload để GamePanel truyền tọa độ trực tiếp (sau khi updatePosition)
+    public void logMoveWithCoords(int fromCol, int fromRow, int toCol, int toRow, Piece captured, Piece promoteTo) {
+        String from = board.getSquareCoordinates(fromCol, fromRow).toUpperCase();
+        String to = board.getSquareCoordinates(toCol, toRow).toUpperCase();
+        String notation = from + to;
+
+        if (promoteTo != null) {
+            if (promoteTo.type == Type.QUEEN)
+                notation += "Q";
+            else if (promoteTo.type == Type.ROOK)
+                notation += "R";
+            else if (promoteTo.type == Type.BISHOP)
+                notation += "B";
+            else if (promoteTo.type == Type.KNIGHT)
+                notation += "N";
+        }
+
+        // simPieces đã được sync, kiểm tra chiếu
+        int opponentColor = (currentColor == WHITE) ? BLACK : WHITE;
+        if (isKingInCheck(opponentColor)) {
+            int savedColor = currentColor;
+            currentColor = opponentColor;
+            if (isCheckmate()) {
+                notation += "#";
+            } else {
+                notation += "+";
+            }
+            currentColor = savedColor;
         }
 
         moveList.add(notation);

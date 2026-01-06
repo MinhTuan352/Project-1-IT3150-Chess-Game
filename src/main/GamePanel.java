@@ -6,6 +6,7 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 /**
  * GamePanel - View + Input + Game Loop
@@ -91,7 +92,7 @@ public class GamePanel extends JPanel implements Runnable {
         // Timer
         logic.updateTimer();
         if (logic.gameOver) {
-            showGameOverDialog("HẾT GIỜ!");
+            SwingUtilities.invokeLater(() -> showGameOverDialog("HẾT GIỜ!"));
             return;
         }
 
@@ -100,7 +101,7 @@ public class GamePanel extends JPanel implements Runnable {
                 && !logic.promotion) {
             logic.performAIMove();
             if (logic.gameOver) {
-                showGameOverDialog("CHECKMATE!");
+                SwingUtilities.invokeLater(() -> showGameOverDialog("CHECKMATE!"));
             }
             return;
         }
@@ -133,8 +134,8 @@ public class GamePanel extends JPanel implements Runnable {
                             logic.changedToGraveyard(capturedP);
                         }
 
+                        // Copy simPieces (có vị trí mới) sang pieces
                         logic.copyPieces(GameLogic.simPieces, GameLogic.pieces);
-                        logic.activeP.updatePosition();
 
                         if (GameLogic.castlingP != null) {
                             GameLogic.castlingP.updatePosition();
@@ -152,22 +153,43 @@ public class GamePanel extends JPanel implements Runnable {
                             if (logic.canPromote()) {
                                 logic.promotion = true;
                             } else {
-                                logic.logMove(logic.activeP, capturedP, null);
+                                // Lưu preCol/preRow trước khi updatePosition
+                                int fromCol = logic.activeP.preCol;
+                                int fromRow = logic.activeP.preRow;
+                                int toCol = logic.activeP.col;
+                                int toRow = logic.activeP.row;
+
+                                // Update position trước để pieces phản ánh đúng vị trí
+                                logic.activeP.updatePosition();
+
+                                // Đảm bảo pieces đã có vị trí mới, sync lại simPieces
+                                logic.copyPieces(GameLogic.pieces, GameLogic.simPieces);
+
+                                // Log với vị trí gốc được truyền trực tiếp
+                                logic.logMoveWithCoords(fromCol, fromRow, toCol, toRow, capturedP, null);
                                 logic.changePlayer();
                             }
                         }
 
-                        // Check game over conditions
+                        // Check game over conditions - delay dialog để repaint hiển thị log trước
                         if (logic.gameOver) {
+                            final String gameOverReason;
                             if (logic.isCheckmate()) {
-                                showGameOverDialog("CHECKMATE!");
+                                gameOverReason = "CHECKMATE!";
                             } else if (logic.isStalemate()) {
-                                showGameOverDialog("STALEMATE!");
+                                gameOverReason = "STALEMATE!";
                             } else if (logic.halfmoveClock >= 100) {
-                                showGameOverDialog("HÒA CỜ - LUẬT 50 NƯỚC!");
+                                gameOverReason = "HÒA CỜ - LUẬT 50 NƯỚC!";
+                            } else if (logic.isInsufficientMaterial()) {
+                                gameOverReason = "HÒA CỜ - THIẾU QUÂN!";
                             } else {
-                                showGameOverDialog("HÒA CỜ - LẶP LẠI 3 LẦN!");
+                                gameOverReason = "HÒA CỜ - LẶP LẠI 3 LẦN!";
                             }
+
+                            // Delay dialog để UI cập nhật log trước
+                            SwingUtilities.invokeLater(() -> {
+                                showGameOverDialog(gameOverReason);
+                            });
                         }
                     } else {
                         logic.copyPieces(GameLogic.pieces, GameLogic.simPieces);
@@ -184,18 +206,39 @@ public class GamePanel extends JPanel implements Runnable {
             int x = logic.activeP.col * Board.SQUARE_SIZE;
             int y = logic.activeP.row * Board.SQUARE_SIZE;
 
+            Piece selectedPromo = null;
+
             if (mouse.x >= x && mouse.x < x + Board.HALF_SQUARE_SIZE && mouse.y >= y
                     && mouse.y < y + Board.HALF_SQUARE_SIZE) {
-                logic.replacePawn(logic.promoPieces.get(0));
+                selectedPromo = logic.promoPieces.get(0);
             } else if (mouse.x >= x + Board.HALF_SQUARE_SIZE && mouse.x < x + Board.SQUARE_SIZE && mouse.y >= y
                     && mouse.y < y + Board.HALF_SQUARE_SIZE) {
-                logic.replacePawn(logic.promoPieces.get(1));
+                selectedPromo = logic.promoPieces.get(1);
             } else if (mouse.x >= x && mouse.x < x + Board.HALF_SQUARE_SIZE && mouse.y >= y + Board.HALF_SQUARE_SIZE
                     && mouse.y < y + Board.SQUARE_SIZE) {
-                logic.replacePawn(logic.promoPieces.get(2));
+                selectedPromo = logic.promoPieces.get(2);
             } else if (mouse.x >= x + Board.HALF_SQUARE_SIZE && mouse.x < x + Board.SQUARE_SIZE
                     && mouse.y >= y + Board.HALF_SQUARE_SIZE && mouse.y < y + Board.SQUARE_SIZE) {
-                logic.replacePawn(logic.promoPieces.get(3));
+                selectedPromo = logic.promoPieces.get(3);
+            }
+
+            if (selectedPromo != null) {
+                logic.replacePawn(selectedPromo);
+
+                // Kiểm tra game over sau phong cấp (có thể checkmate)
+                if (logic.gameOver) {
+                    final String gameOverReason;
+                    if (logic.isCheckmate()) {
+                        gameOverReason = "CHECKMATE!";
+                    } else if (logic.isStalemate()) {
+                        gameOverReason = "STALEMATE!";
+                    } else if (logic.isInsufficientMaterial()) {
+                        gameOverReason = "HÒA CỜ - THIẾU QUÂN!";
+                    } else {
+                        gameOverReason = "HÒA CỜ!";
+                    }
+                    SwingUtilities.invokeLater(() -> showGameOverDialog(gameOverReason));
+                }
             }
         }
     }
