@@ -8,14 +8,10 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
-/**
- * GamePanel - View + Input + Game Loop
- * Logic được xử lý bởi GameLogic
- * Vẽ được xử lý bởi GameRenderer
- */
+// GamePanel: View + Input + Game Loop
 public class GamePanel extends JPanel implements Runnable {
-    public static final int WIDTH = 880;
-    public static final int HEIGHT = 640;
+    public static final int WIDTH = GameRenderer.TOTAL_WIDTH;
+    public static final int HEIGHT = GameRenderer.TOTAL_HEIGHT;
     final int FPS = 60;
 
     Thread gameThread;
@@ -79,7 +75,11 @@ public class GamePanel extends JPanel implements Runnable {
     private void update() {
         // Xử lý nút Undo
         if (mouse.pressed) {
-            if (mouse.x >= 640 && mouse.x <= 720 && mouse.y >= 600 && mouse.y <= 640) {
+            int ux = GameRenderer.getUndoBtnX();
+            int uy = GameRenderer.getUndoBtnY();
+            int uw = GameRenderer.getUndoBtnWidth();
+            int uh = GameRenderer.getUndoBtnHeight();
+            if (mouse.x >= ux && mouse.x <= ux + uw && mouse.y >= uy && mouse.y <= uy + uh) {
                 logic.undo();
                 mouse.pressed = false;
                 return;

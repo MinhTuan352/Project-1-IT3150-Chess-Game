@@ -10,10 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
 
-/**
- * GameLogic - Chứa toàn bộ logic game cờ vua
- * Tách từ GamePanel để dễ quản lý
- */
+// Game Logic: Chứa toàn bộ logic game cờ vua
 public class GameLogic {
     // Color constants
     public static final int WHITE = 0;
@@ -330,20 +327,7 @@ public class GameLogic {
     }
 
     public void changedToGraveyard(Piece capturedP) {
-        int count = 0;
-        for (Piece piece : capturedPieces) {
-            if (piece.color == capturedP.color) {
-                count++;
-            }
-        }
-
-        if (capturedP.color == WHITE) {
-            capturedP.x = (8 * Board.SQUARE_SIZE) + (count % 2) * (Board.HALF_SQUARE_SIZE);
-            capturedP.y = (0 * Board.SQUARE_SIZE) + (count / 2) * (Board.HALF_SQUARE_SIZE);
-        } else {
-            capturedP.x = (8 * Board.SQUARE_SIZE) + (count % 2) * (Board.HALF_SQUARE_SIZE);
-            capturedP.y = (7 * Board.SQUARE_SIZE) - (count / 2) * (Board.HALF_SQUARE_SIZE);
-        }
+        // GameRenderer vẽ dựa trên index
         capturedPieces.add(capturedP);
     }
 

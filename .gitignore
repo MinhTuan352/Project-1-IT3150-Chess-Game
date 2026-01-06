@@ -1,0 +1,12 @@
+# Binary and build files
+bin/
+*.class
+
+# Game Logs and Saves
+res/log/
+res/saves/
+
+# IDE files
+.vscode/
+.idea/
+*.iml
