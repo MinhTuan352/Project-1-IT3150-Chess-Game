@@ -10,7 +10,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
 
@@ -76,6 +78,8 @@ public class GameLogic {
         capturedPieces.clear();
         moveList.clear();
         history.clear();
+        redoHistory.clear();
+        redoMoveList.clear();
 
         whiteTime = settings.timeLimit;
         blackTime = settings.timeLimit;
@@ -83,9 +87,20 @@ public class GameLogic {
 
         currentColor = WHITE;
         activeP = null;
+        checkingP = null;
+        castlingP = null;
         promotion = false;
         gameOver = false;
+        isPaused = false;
+        winner = -1;
         halfmoveClock = 0;
+
+        // Reset nước đi cuối (Khi reset ván đấu)
+        lastMoveFromCol = -1;
+        lastMoveFromRow = -1;
+        lastMoveToCol = -1;
+        lastMoveToRow = -1;
+
         positionHistory.clear();
         updatePositionHistory();
     }
@@ -389,7 +404,9 @@ public class GameLogic {
         if (King == null)
             return false;
 
-        for (Piece piece : simPieces) {
+        // Tạo bản sao để tránh ConcurrentModificationException
+        ArrayList<Piece> piecesCopy = new ArrayList<>(simPieces);
+        for (Piece piece : piecesCopy) {
             if (piece.color != kingColor) {
                 if (piece.canMove(King.col, King.row)) {
                     checkingP = piece;
@@ -402,7 +419,9 @@ public class GameLogic {
     }
 
     public Piece getKing(int color) {
-        for (Piece piece : simPieces) {
+        // Tạo bản sao để tránh ConcurrentModificationException
+        ArrayList<Piece> piecesCopy = new ArrayList<>(simPieces);
+        for (Piece piece : piecesCopy) {
             if (piece.type == Type.KING && piece.color == color) {
                 return piece;
             }
@@ -921,6 +940,47 @@ public class GameLogic {
             System.out.println("Đã lưu game: res/saves/" + filename + ".txt");
         } catch (Exception e) {
             System.err.println("Lỗi khi lưu game: " + e.getMessage());
+        }
+    }
+
+    // Xuất log ván đấu khi kết thúc
+    public void exportGameLog(String result) {
+        try {
+            File logDir = new File("res/log");
+            if (!logDir.exists()) {
+                logDir.mkdirs();
+            }
+
+            // Tạo tên file với timestamp
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
+            String timestamp = sdf.format(new Date());
+            String filename = "game_" + timestamp + ".pgn";
+
+            PrintWriter writer = new PrintWriter("res/log/" + filename);
+
+            // Header PGN
+            writer.println("[Event \"Chess Game\"]");
+            writer.println("[Date \"" + new SimpleDateFormat("yyyy.MM.dd").format(new Date()) + "\"]");
+            writer.println("[White \"" + (settings != null ? settings.p1Name : "Player 1") + "\"]");
+            writer.println("[Black \"" + (settings != null ? settings.p2Name : "Player 2") + "\"]");
+            writer.println("[Result \"" + result + "\"]");
+            writer.println();
+
+            // Danh sách nước đi
+            StringBuilder moves = new StringBuilder();
+            for (int i = 0; i < moveList.size(); i++) {
+                if (i % 2 == 0) {
+                    moves.append((i / 2 + 1)).append(". ");
+                }
+                moves.append(moveList.get(i)).append(" ");
+            }
+            moves.append(result);
+            writer.println(moves.toString().trim());
+
+            writer.close();
+            System.out.println("Đã xuất log: res/log/" + filename);
+        } catch (Exception e) {
+            System.err.println("Lỗi khi xuất log: " + e.getMessage());
         }
     }
 

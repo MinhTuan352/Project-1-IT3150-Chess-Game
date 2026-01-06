@@ -3,6 +3,7 @@ package main;
 import piece.Piece;
 import java.awt.*;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 
 // Game Renderer: Tập trung xử lý giao diện game
 public class GameRenderer {
@@ -125,7 +126,9 @@ public class GameRenderer {
     }
 
     private void drawPieces(Graphics2D g2, GameLogic logic) {
-        for (Piece piece : GameLogic.simPieces) {
+        // Tạo bản sao để tránh ConcurrentModificationException
+        ArrayList<Piece> piecesCopy = new ArrayList<>(GameLogic.simPieces);
+        for (Piece piece : piecesCopy) {
             if (piece != logic.activeP) {
                 piece.draw(g2);
             }

@@ -309,6 +309,10 @@ public class GamePanel extends JPanel implements Runnable {
             winner = "DRAW!";
         }
 
+        // Xuất log ván đấu tự động
+        String pgnResult = winner.equals("DRAW!") ? "1/2-1/2" : (winner.equals("WHITE WINS!") ? "1-0" : "0-1");
+        logic.exportGameLog(pgnResult);
+
         String message = reason + "\n" + winner + "\nBạn muốn làm gì?";
         Object[] options = { "Chơi lại", "Về Menu" };
 
