@@ -20,11 +20,15 @@ public class GameRenderer {
     // Player info box
     private static final int PLAYER_INFO_HEIGHT = 100;
 
-    // Nút Undo
-    private static final int UNDO_BTN_X = GRAVEYARD_X;
-    private static final int UNDO_BTN_Y = 600;
-    private static final int UNDO_BTN_WIDTH = GRAVEYARD_WIDTH;
-    private static final int UNDO_BTN_HEIGHT = 40;
+    // Nút Options (thay thế Undo)
+    private static final int OPTIONS_BTN_X = GRAVEYARD_X;
+    private static final int OPTIONS_BTN_Y = 600;
+    private static final int OPTIONS_BTN_WIDTH = GRAVEYARD_WIDTH;
+    private static final int OPTIONS_BTN_HEIGHT = 40;
+
+    // Popup menu (mỗi item 40x80)
+    private static final int MENU_ITEM_HEIGHT = 40;
+    private static final int MENU_ITEM_WIDTH = 80;
 
     // Lịch sử di chuyển
     private static final int HISTORY_ROW_HEIGHT = 32;
@@ -35,6 +39,9 @@ public class GameRenderer {
     private static final Color BG_SIDEBAR = new Color(50, 50, 55);
     private static final Color BTN_NORMAL = new Color(55, 55, 55);
     private static final Color BTN_HOVER = new Color(70, 70, 70);
+    private static final Color BTN_DISABLED = new Color(40, 40, 40);
+    private static final Color TEXT_DISABLED = new Color(100, 100, 100);
+    private static final Color MENU_BG = new Color(50, 50, 55);
     private static final Color HISTORY_BG = new Color(40, 40, 45);
     private static final Color HISTORY_HEADER_BG = new Color(55, 55, 60);
     private static final Color LINE_COLOR = new Color(70, 70, 70);
@@ -43,16 +50,19 @@ public class GameRenderer {
     private static final Color ILLEGAL_MOVE = new Color(200, 50, 50, 180);
     private static final Color PROMO_BG = new Color(255, 255, 255, 230);
     private static final Color TURN_BORDER = new Color(80, 180, 80);
+    private static final Color LAST_MOVE_HIGHLIGHT = new Color(180, 180, 50, 120);
 
     // Font chữ
     private static final Font FONT_HISTORY = new Font("Consolas", Font.PLAIN, 14);
     private static final Font FONT_HEADER = new Font("Arial", Font.PLAIN, 11);
     private static final Font FONT_TIMER = new Font("Arial", Font.BOLD, 32);
     private static final Font FONT_BUTTON = new Font("Arial", Font.BOLD, 12);
+    private static final Font FONT_MENU = new Font("Arial", Font.PLAIN, 13);
 
     // Fields
     private final DecimalFormat timeFormat = new DecimalFormat("00");
     private final Board board = new Board();
+    public boolean showOptionsMenu = false; // Trạng thái hiện popup menu
 
     // Hàm vẽ game
     public void paintGame(Graphics2D g2, GameLogic logic, Mouse mouse, int historyScrollIndex) {
@@ -60,6 +70,9 @@ public class GameRenderer {
 
         // Vẽ bàn cờ
         board.draw(g2);
+
+        // Highlight nước đi cuối
+        drawLastMoveHighlight(g2, logic);
 
         // Highlight vua bị chiếu
         drawCheckHighlight(g2, logic);
@@ -86,6 +99,18 @@ public class GameRenderer {
     private void setupRenderingHints(Graphics2D g2) {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+    }
+
+    private void drawLastMoveHighlight(Graphics2D g2, GameLogic logic) {
+        if (logic.lastMoveFromCol >= 0 && logic.lastMoveToCol >= 0) {
+            g2.setColor(LAST_MOVE_HIGHLIGHT);
+            // Highlight ô xuất phát
+            g2.fillRect(logic.lastMoveFromCol * Board.SQUARE_SIZE, logic.lastMoveFromRow * Board.SQUARE_SIZE,
+                    Board.SQUARE_SIZE, Board.SQUARE_SIZE);
+            // Highlight ô đích
+            g2.fillRect(logic.lastMoveToCol * Board.SQUARE_SIZE, logic.lastMoveToRow * Board.SQUARE_SIZE,
+                    Board.SQUARE_SIZE, Board.SQUARE_SIZE);
+        }
     }
 
     private void drawCheckHighlight(Graphics2D g2, GameLogic logic) {
@@ -146,65 +171,147 @@ public class GameRenderer {
         g2.setColor(Color.BLACK);
         g2.drawLine(GRAVEYARD_X, 0, GRAVEYARD_X, BOARD_SIZE);
 
-        // Vẽ captured pieces
-        // Quân trắng bị ăn (hiện bên BLACK - phía trên)
-        int whiteCount = 0;
-        for (Piece piece : GameLogic.capturedPieces) {
-            if (piece.color == GameLogic.WHITE) {
-                int cx = GRAVEYARD_X + (whiteCount % 2) * Board.HALF_SQUARE_SIZE;
-                int cy = (whiteCount / 2) * Board.HALF_SQUARE_SIZE;
-                if (piece.image != null) {
-                    g2.drawImage(piece.image, cx, cy, Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, null);
-                }
-                whiteCount++;
-            }
-        }
+        // Vẽ captured pieces với logic xếp thông minh
+        // Tính toán vị trí khả dụng
+        int optionsBtnY = OPTIONS_BTN_Y; // 600
+        int availableHeight = optionsBtnY; // 600px cho captured pieces
+        int maxSlotsPerSide = availableHeight / Board.HALF_SQUARE_SIZE; // 15 hàng mỗi bên
 
-        // Quân đen bị ăn (hiện bên WHITE - phía dưới, từ dưới lên)
+        // Đếm số quân đen (cần cho tính toán overflow)
         int blackCount = 0;
         for (Piece piece : GameLogic.capturedPieces) {
-            if (piece.color == GameLogic.BLACK) {
-                int cx = GRAVEYARD_X + (blackCount % 2) * Board.HALF_SQUARE_SIZE;
-                int cy = BOARD_SIZE - UNDO_BTN_HEIGHT - Board.HALF_SQUARE_SIZE
-                        - (blackCount / 2) * Board.HALF_SQUARE_SIZE;
+            if (piece.color == GameLogic.BLACK)
+                blackCount++;
+        }
+
+        // Vẽ quân trắng bị ăn (từ trên xuống)
+        int wIdx = 0;
+        for (Piece piece : GameLogic.capturedPieces) {
+            if (piece.color == GameLogic.WHITE) {
+                int cx, cy;
+                if (wIdx < maxSlotsPerSide * 2) {
+                    // Còn chỗ phía trên
+                    cx = GRAVEYARD_X + (wIdx % 2) * Board.HALF_SQUARE_SIZE;
+                    cy = (wIdx / 2) * Board.HALF_SQUARE_SIZE;
+                } else {
+                    // Overflow: xếp vào vùng đen (từ dưới lên)
+                    int overflow = wIdx - maxSlotsPerSide * 2;
+                    cx = GRAVEYARD_X + (overflow % 2) * Board.HALF_SQUARE_SIZE;
+                    cy = optionsBtnY - Board.HALF_SQUARE_SIZE
+                            - (blackCount / 2 + overflow / 2 + 1) * Board.HALF_SQUARE_SIZE;
+                }
                 if (piece.image != null) {
                     g2.drawImage(piece.image, cx, cy, Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, null);
                 }
-                blackCount++;
+                wIdx++;
             }
         }
 
-        // Nút Undo
-        drawUndoButton(g2, mouse);
+        // Vẽ quân đen bị ăn (từ dưới lên)
+        int bIdx = 0;
+        for (Piece piece : GameLogic.capturedPieces) {
+            if (piece.color == GameLogic.BLACK) {
+                int cx = GRAVEYARD_X + (bIdx % 2) * Board.HALF_SQUARE_SIZE;
+                int cy = optionsBtnY - Board.HALF_SQUARE_SIZE - (bIdx / 2) * Board.HALF_SQUARE_SIZE;
+                if (piece.image != null) {
+                    g2.drawImage(piece.image, cx, cy, Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, null);
+                }
+                bIdx++;
+            }
+        }
+
+        // Nút Options
+        drawOptionsButton(g2, mouse, logic);
     }
 
-    private void drawUndoButton(Graphics2D g2, Mouse mouse) {
-        boolean isHovered = mouse.x >= UNDO_BTN_X && mouse.x <= UNDO_BTN_X + UNDO_BTN_WIDTH
-                && mouse.y >= UNDO_BTN_Y && mouse.y <= UNDO_BTN_Y + UNDO_BTN_HEIGHT;
+    private void drawOptionsButton(Graphics2D g2, Mouse mouse, GameLogic logic) {
+        // Không vẽ nút khi game đã kết thúc
+        if (logic.gameOver) {
+            g2.setColor(BTN_DISABLED);
+            g2.fillRect(OPTIONS_BTN_X, OPTIONS_BTN_Y, OPTIONS_BTN_WIDTH, OPTIONS_BTN_HEIGHT);
+            g2.setColor(TEXT_DISABLED);
+            g2.setFont(FONT_BUTTON);
+            g2.drawString("Options", OPTIONS_BTN_X + 12, OPTIONS_BTN_Y + 25);
+            return;
+        }
+
+        boolean isHovered = mouse.x >= OPTIONS_BTN_X && mouse.x <= OPTIONS_BTN_X + OPTIONS_BTN_WIDTH
+                && mouse.y >= OPTIONS_BTN_Y && mouse.y <= OPTIONS_BTN_Y + OPTIONS_BTN_HEIGHT;
 
         // Nền nút
         g2.setColor(isHovered ? BTN_HOVER : BTN_NORMAL);
-        g2.fillRect(UNDO_BTN_X, UNDO_BTN_Y, UNDO_BTN_WIDTH, UNDO_BTN_HEIGHT);
+        g2.fillRect(OPTIONS_BTN_X, OPTIONS_BTN_Y, OPTIONS_BTN_WIDTH, OPTIONS_BTN_HEIGHT);
 
         // Viền
         g2.setColor(Color.GRAY);
-        g2.drawRect(UNDO_BTN_X, UNDO_BTN_Y, UNDO_BTN_WIDTH - 1, UNDO_BTN_HEIGHT - 1);
+        g2.drawRect(OPTIONS_BTN_X, OPTIONS_BTN_Y, OPTIONS_BTN_WIDTH - 1, OPTIONS_BTN_HEIGHT - 1);
 
-        // Icon: vẽ mũi tên cong (undo arrow)
+        // Icon bánh răng (gear)
         g2.setColor(Color.WHITE);
-        g2.setStroke(new BasicStroke(2.5f));
-        int iconCenterX = UNDO_BTN_X + 25;
-        int iconCenterY = UNDO_BTN_Y + 20;
-        // Arc (phần cong)
-        g2.drawArc(iconCenterX - 8, iconCenterY - 8, 16, 16, 240, 270);
-        // Arrow head (tam giác nhỏ)
-        int[] xPoints = { iconCenterX - 8, iconCenterX - 2, iconCenterX - 8 };
-        int[] yPoints = { iconCenterY - 7, iconCenterY - 4, iconCenterY + 1 };
-        g2.fillPolygon(xPoints, yPoints, 3);
+        g2.setStroke(new BasicStroke(1.5f));
+        int cx = OPTIONS_BTN_X + 15;
+        int cy = OPTIONS_BTN_Y + 20;
+        g2.drawOval(cx - 6, cy - 6, 12, 12);
+        g2.fillOval(cx - 3, cy - 3, 6, 6);
 
-        // Chữ "Undo"
+        // Chữ "Options"
         g2.setFont(FONT_BUTTON);
-        g2.drawString("Undo", UNDO_BTN_X + 40, UNDO_BTN_Y + 25);
+        g2.drawString("Options", OPTIONS_BTN_X + 25, OPTIONS_BTN_Y + 25);
+    }
+
+    // Vẽ popup menu Options
+    public void drawOptionsMenu(Graphics2D g2, GameLogic logic, Mouse mouse) {
+        if (!showOptionsMenu)
+            return;
+
+        boolean hasTimeLimit = logic.settings != null && logic.settings.timeLimit != -1;
+
+        // Danh sách menu items (động dựa vào có timer hay không)
+        String[] items = hasTimeLimit
+                ? new String[] { "Save", "Pause", "Undo", "Redo", "Draw", "Resign" }
+                : new String[] { "Save", "Undo", "Redo", "Draw", "Resign" };
+
+        boolean[] enabled = hasTimeLimit
+                ? new boolean[] { true, true, logic.canUndo(), logic.canRedo(), true, true }
+                : new boolean[] { true, logic.canUndo(), logic.canRedo(), true, true };
+
+        int menuHeight = items.length * MENU_ITEM_HEIGHT;
+        int menuX = OPTIONS_BTN_X;
+        int menuY = OPTIONS_BTN_Y - menuHeight;
+
+        // Nền menu
+        g2.setColor(MENU_BG);
+        g2.fillRect(menuX, menuY, MENU_ITEM_WIDTH, menuHeight);
+
+        // Viền menu
+        g2.setColor(LINE_COLOR);
+        g2.drawRect(menuX, menuY, MENU_ITEM_WIDTH - 1, menuHeight - 1);
+
+        // Vẽ từng item
+        g2.setFont(FONT_MENU);
+        for (int i = 0; i < items.length; i++) {
+            int itemY = menuY + i * MENU_ITEM_HEIGHT;
+
+            // Kiểm tra hover
+            boolean itemHovered = mouse.x >= menuX && mouse.x <= menuX + MENU_ITEM_WIDTH
+                    && mouse.y >= itemY && mouse.y <= itemY + MENU_ITEM_HEIGHT;
+
+            // Nền item
+            if (itemHovered && enabled[i]) {
+                g2.setColor(BTN_HOVER);
+                g2.fillRect(menuX, itemY, MENU_ITEM_WIDTH, MENU_ITEM_HEIGHT);
+            }
+
+            // Đường phân cách
+            if (i > 0) {
+                g2.setColor(LINE_COLOR);
+                g2.drawLine(menuX, itemY, menuX + MENU_ITEM_WIDTH, itemY);
+            }
+
+            // Chữ
+            g2.setColor(enabled[i] ? Color.WHITE : TEXT_DISABLED);
+            g2.drawString(items[i], menuX + 15, itemY + 26);
+        }
     }
 
     // Thanh bên (Sidebar)
@@ -338,19 +445,28 @@ public class GameRenderer {
     }
 
     // Hằng số công khai cho GamePanel
-    public static int getUndoBtnX() {
-        return UNDO_BTN_X;
+    public static int getOptionsBtnX() {
+        return OPTIONS_BTN_X;
     }
 
-    public static int getUndoBtnY() {
-        return UNDO_BTN_Y;
+    public static int getOptionsBtnY() {
+        return OPTIONS_BTN_Y;
     }
 
-    public static int getUndoBtnWidth() {
-        return UNDO_BTN_WIDTH;
+    public static int getOptionsBtnWidth() {
+        return OPTIONS_BTN_WIDTH;
     }
 
-    public static int getUndoBtnHeight() {
-        return UNDO_BTN_HEIGHT;
+    public static int getOptionsBtnHeight() {
+        return OPTIONS_BTN_HEIGHT;
+    }
+
+    // Menu item constants cho GamePanel
+    public static int getMenuItemHeight() {
+        return MENU_ITEM_HEIGHT;
+    }
+
+    public static int getMenuItemWidth() {
+        return MENU_ITEM_WIDTH;
     }
 }

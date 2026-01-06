@@ -50,6 +50,15 @@ public class GamePanel extends JPanel implements Runnable {
     public void setupGame(GameSettings settings) {
         logic.setupGame(settings);
         historyScrollIndex = 0;
+        renderer.showOptionsMenu = false;
+    }
+
+    // Tải game từ GameLogic đã load
+    public void loadGameFromLogic(GameLogic loadedLogic) {
+        this.logic = loadedLogic;
+        historyScrollIndex = 0;
+        renderer.showOptionsMenu = false;
+        launchGame();
     }
 
     @Override
@@ -73,14 +82,46 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void update() {
-        // Xử lý nút Undo
+        // Xử lý nút Options và popup menu
         if (mouse.pressed) {
-            int ux = GameRenderer.getUndoBtnX();
-            int uy = GameRenderer.getUndoBtnY();
-            int uw = GameRenderer.getUndoBtnWidth();
-            int uh = GameRenderer.getUndoBtnHeight();
-            if (mouse.x >= ux && mouse.x <= ux + uw && mouse.y >= uy && mouse.y <= uy + uh) {
-                logic.undo();
+            int ox = GameRenderer.getOptionsBtnX();
+            int oy = GameRenderer.getOptionsBtnY();
+            int ow = GameRenderer.getOptionsBtnWidth();
+            int oh = GameRenderer.getOptionsBtnHeight();
+
+            // Click Options button
+            if (!logic.gameOver && mouse.x >= ox && mouse.x <= ox + ow && mouse.y >= oy && mouse.y <= oy + oh) {
+                renderer.showOptionsMenu = !renderer.showOptionsMenu;
+                mouse.pressed = false;
+                return;
+            }
+
+            // Click menu item khi popup đang mở
+            if (renderer.showOptionsMenu) {
+                boolean hasTimeLimit = logic.settings != null && logic.settings.timeLimit != -1;
+                String[] items = hasTimeLimit
+                        ? new String[] { "Save", "Pause", "Undo", "Redo", "Draw", "Resign" }
+                        : new String[] { "Save", "Undo", "Redo", "Draw", "Resign" };
+
+                int mh = GameRenderer.getMenuItemHeight();
+                int mw = GameRenderer.getMenuItemWidth();
+                int menuHeight = items.length * mh;
+                int menuX = ox;
+                int menuY = oy - menuHeight;
+
+                // Kiểm tra click trong vùng menu
+                if (mouse.x >= menuX && mouse.x <= menuX + mw && mouse.y >= menuY && mouse.y <= menuY + menuHeight) {
+                    int index = (mouse.y - menuY) / mh;
+                    if (index >= 0 && index < items.length) {
+                        handleMenuClick(items[index]);
+                        renderer.showOptionsMenu = false;
+                        mouse.pressed = false;
+                        return;
+                    }
+                }
+
+                // Click ngoài menu → đóng menu
+                renderer.showOptionsMenu = false;
                 mouse.pressed = false;
                 return;
             }
@@ -101,7 +142,7 @@ public class GamePanel extends JPanel implements Runnable {
                 && !logic.promotion) {
             logic.performAIMove();
             if (logic.gameOver) {
-                SwingUtilities.invokeLater(() -> showGameOverDialog("CHECKMATE!"));
+                SwingUtilities.invokeLater(() -> showGameOverDialog("CHIẾU HẾT!"));
             }
             return;
         }
@@ -171,19 +212,19 @@ public class GamePanel extends JPanel implements Runnable {
                             }
                         }
 
-                        // Check game over conditions - delay dialog để repaint hiển thị log trước
+                        // Kiểm tra kết thúc game - delay dialog để repaint hiển thị log trước
                         if (logic.gameOver) {
                             final String gameOverReason;
                             if (logic.isCheckmate()) {
-                                gameOverReason = "CHECKMATE!";
+                                gameOverReason = "CHIẾU HẾT!";
                             } else if (logic.isStalemate()) {
-                                gameOverReason = "STALEMATE!";
+                                gameOverReason = "HÒA - HẾT NƯỚC!";
                             } else if (logic.halfmoveClock >= 100) {
-                                gameOverReason = "HÒA CỜ - LUẬT 50 NƯỚC!";
+                                gameOverReason = "HÒA - LUẬT 50 NƯỚC!";
                             } else if (logic.isInsufficientMaterial()) {
-                                gameOverReason = "HÒA CỜ - THIẾU QUÂN!";
+                                gameOverReason = "HÒA - THIẾU QUÂN!";
                             } else {
-                                gameOverReason = "HÒA CỜ - LẶP LẠI 3 LẦN!";
+                                gameOverReason = "HÒA - LẶP LẠI 3 LẦN!";
                             }
 
                             // Delay dialog để UI cập nhật log trước
@@ -229,13 +270,13 @@ public class GamePanel extends JPanel implements Runnable {
                 if (logic.gameOver) {
                     final String gameOverReason;
                     if (logic.isCheckmate()) {
-                        gameOverReason = "CHECKMATE!";
+                        gameOverReason = "CHIẾU HẾT!";
                     } else if (logic.isStalemate()) {
-                        gameOverReason = "STALEMATE!";
+                        gameOverReason = "HÒA - HẾT NƯỚC!";
                     } else if (logic.isInsufficientMaterial()) {
-                        gameOverReason = "HÒA CỜ - THIẾU QUÂN!";
+                        gameOverReason = "HÒA - THIẾU QUÂN!";
                     } else {
-                        gameOverReason = "HÒA CỜ!";
+                        gameOverReason = "HÒA!";
                     }
                     SwingUtilities.invokeLater(() -> showGameOverDialog(gameOverReason));
                 }
@@ -283,10 +324,60 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    // Xử lý click menu item
+    private void handleMenuClick(String item) {
+        switch (item) {
+            case "Save":
+                // Lưu game với timestamp
+                String filename = "game_" + System.currentTimeMillis();
+                logic.saveGame(filename);
+                JOptionPane.showMessageDialog(this, "Đã lưu game!", "Save", JOptionPane.INFORMATION_MESSAGE);
+                break;
+            case "Pause":
+                logic.togglePause();
+                if (logic.isPaused) {
+                    JOptionPane.showMessageDialog(this, "Game đang tạm dừng.\nBấm OK để tiếp tục.", "Pause",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    logic.togglePause(); // Resume khi bấm OK
+                }
+                break;
+            case "Undo":
+                if (logic.canUndo()) {
+                    logic.undo();
+                }
+                break;
+            case "Redo":
+                if (logic.canRedo()) {
+                    logic.redo();
+                }
+                break;
+            case "Draw":
+                int drawChoice = JOptionPane.showConfirmDialog(this,
+                        "Bạn có chắc muốn xin hòa?", "Draw", JOptionPane.YES_NO_OPTION);
+                if (drawChoice == JOptionPane.YES_OPTION) {
+                    if (logic.offerDraw()) {
+                        showGameOverDialog("HÒA - THỎA THUẬN!");
+                    }
+                }
+                break;
+            case "Resign":
+                int resignChoice = JOptionPane.showConfirmDialog(this,
+                        "Bạn có chắc muốn đầu hàng?", "Resign", JOptionPane.YES_NO_OPTION);
+                if (resignChoice == JOptionPane.YES_OPTION) {
+                    logic.resign();
+                    showGameOverDialog("ĐẦU HÀNG!");
+                }
+                break;
+        }
+    }
+
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
         renderer.paintGame(g2, logic, mouse, historyScrollIndex);
+
+        // Vẽ popup menu (trên cùng)
+        renderer.drawOptionsMenu(g2, logic, mouse);
     }
 }

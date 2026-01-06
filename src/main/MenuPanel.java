@@ -1,11 +1,14 @@
 package main;
 
 import javax.swing.JPanel;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.BoxLayout;
 import javax.swing.Box;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Color;
 import java.awt.Font;
@@ -22,7 +25,7 @@ public class MenuPanel extends JPanel {
     public MenuPanel() {
         // Thiết lập kích thước giống hệt GamePanel để khi chuyển cảnh không bị giật
         setPreferredSize(new Dimension(GamePanel.WIDTH, GamePanel.HEIGHT));
-        
+
         // Sử dụng BoxLayout để xếp các phần tử theo chiều dọc
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 
@@ -35,12 +38,12 @@ public class MenuPanel extends JPanel {
         // Sử dụng hàm phụ trợ createButton để tạo nút
         JButton btnPvP = new RoundedButton("Đấu với người (PvP)");
         JButton btnPvE = new RoundedButton("Đấu với máy (PvE)");
-        
+
         // Nút Đấu với người -> Chuyển sang Setup với chế độ PvP (isPvE = false)
         btnPvP.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                Main.instance.showSetup(false); 
+                Main.instance.showSetup(false);
             }
         });
 
@@ -52,13 +55,33 @@ public class MenuPanel extends JPanel {
             }
         });
 
+        // Nút Tải ván đấu
+        JButton btnLoad = new RoundedButton("Tải ván đấu");
+        btnLoad.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                JFileChooser fileChooser = new JFileChooser("res/saves");
+                fileChooser.setDialogTitle("Chọn file save game");
+                fileChooser.setFileFilter(
+                        new FileNameExtensionFilter("Save files (*.txt)", "txt"));
+
+                int result = fileChooser.showOpenDialog(Main.instance);
+                if (result == JFileChooser.APPROVE_OPTION) {
+                    String filepath = fileChooser.getSelectedFile().getAbsolutePath();
+                    Main.instance.loadSavedGame(filepath);
+                }
+            }
+        });
+
         // Glue ở đầu và cuối giúp đẩy nội dung vào chính giữa theo chiều dọc
-        add(Box.createVerticalGlue()); 
+        add(Box.createVerticalGlue());
         add(titleLabel);
         add(Box.createRigidArea(new Dimension(0, 50))); // Khoảng cách cố định 50px dưới tiêu đề
         add(btnPvP);
         add(Box.createRigidArea(new Dimension(0, 20))); // Khoảng cách 20px giữa 2 nút
         add(btnPvE);
+        add(Box.createRigidArea(new Dimension(0, 20)));
+        add(btnLoad);
         add(Box.createVerticalGlue());
     }
 
@@ -80,8 +103,9 @@ public class MenuPanel extends JPanel {
             }
         }
 
-        // Phủ một lớp đen bán trong suốt lên trên để làm nền tối đi, giúp nút nổi bật hơn
-        g2.setColor(new Color(0, 0, 0, 80));    // Alpha 80/255
+        // Phủ một lớp đen bán trong suốt lên trên để làm nền tối đi, giúp nút nổi bật
+        // hơn
+        g2.setColor(new Color(0, 0, 0, 80)); // Alpha 80/255
         g2.fillRect(0, 0, getWidth(), getHeight());
     }
 
@@ -93,13 +117,13 @@ public class MenuPanel extends JPanel {
             super(text);
             setFont(new Font("Arial", Font.PLAIN, 24));
             // Màu chữ khi chưa hover (Xám đậm cho dễ đọc trên nền trắng)
-            setForeground(new Color(40, 40, 40)); 
-            
+            setForeground(new Color(40, 40, 40));
+
             setContentAreaFilled(false); // Tắt nền mặc định của Swing
-            setFocusPainted(false);      // Tắt viền focus nét đứt
-            setBorderPainted(false);     // Tắt viền nổi mặc định
-            
-            setMaximumSize(new Dimension(300, 60)); 
+            setFocusPainted(false); // Tắt viền focus nét đứt
+            setBorderPainted(false); // Tắt viền nổi mặc định
+
+            setMaximumSize(new Dimension(300, 60));
             setAlignmentX(Component.CENTER_ALIGNMENT);
 
             // Thêm sự kiện chuột để tạo hiệu ứng Hover
@@ -107,13 +131,14 @@ public class MenuPanel extends JPanel {
                 @Override
                 public void mouseEntered(MouseEvent e) {
                     isHovered = true;
-                    setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR)); // Đổi con trỏ thành bàn tay
+                    setCursor(new Cursor(Cursor.HAND_CURSOR)); // Đổi con trỏ thành bàn tay
                     repaint(); // Vẽ lại nút
                 }
+
                 @Override
                 public void mouseExited(MouseEvent e) {
                     isHovered = false;
-                    setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
+                    setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
                     repaint();
                 }
             });

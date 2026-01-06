@@ -1,11 +1,12 @@
 package main;
 
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import java.awt.CardLayout;
 
 public class Main extends JFrame {
-    
+
     // Biến static để các màn hình con có thể truy cập lại Main dễ dàng
     public static Main instance;
 
@@ -53,7 +54,8 @@ public class Main extends JFrame {
         cardLayout.show(cardPanel, "SETUP");
     }
 
-    // Hàm bắt đầu game (Chuyển từ Setup sang Game). Nhận vào object GameSettings chứa toàn bộ cấu hình người chơi đã chọn
+    // Hàm bắt đầu game (Chuyển từ Setup sang Game). Nhận vào object GameSettings
+    // chứa toàn bộ cấu hình người chơi đã chọn
     public void startGame(GameSettings settings) {
         // Truyền cài đặt vào bàn cờ để khởi tạo quân, tên, đồng hồ...
         gamePanel.setupGame(settings);
@@ -65,6 +67,20 @@ public class Main extends JFrame {
     // Hàm quay về Menu chính (Từ Game hoặc Setup sang Menu)
     public void returnToMenu() {
         cardLayout.show(cardPanel, "MENU");
+    }
+
+    // Hàm tải ván đấu đã lưu
+    public void loadSavedGame(String filepath) {
+        // Tạo GameLogic mới và load file
+        GameLogic tempLogic = new GameLogic();
+        if (tempLogic.loadGame(filepath)) {
+            // Load thành công -> chuyển sang game với settings đã load
+            gamePanel.loadGameFromLogic(tempLogic);
+            cardLayout.show(cardPanel, "GAME");
+            gamePanel.requestFocus();
+        } else {
+            JOptionPane.showMessageDialog(this, "Không thể tải file save!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     public static void main(String[] args) {

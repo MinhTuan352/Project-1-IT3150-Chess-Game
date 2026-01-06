@@ -6,6 +6,10 @@ import piece.Knight;
 import piece.Queen;
 import piece.Rook;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Random;
@@ -46,7 +50,17 @@ public class GameLogic {
     public int halfmoveClock = 0;
     public HashMap<String, Integer> positionHistory = new HashMap<>();
 
-    // Board reference for coordinate conversion
+    // Last move highlight
+    public int lastMoveFromCol = -1, lastMoveFromRow = -1;
+    public int lastMoveToCol = -1, lastMoveToRow = -1;
+
+    // Options menu support
+    public boolean isPaused = false;
+    public ArrayList<HistoryMove> redoHistory = new ArrayList<>();
+    public ArrayList<String> redoMoveList = new ArrayList<>(); // Lưu các move bị undo
+    public int winner = -1; // -1 = chưa có, 0 = WHITE, 1 = BLACK, 2 = HÒA
+
+    // Board reference
     private Board board = new Board();
 
     public GameLogic() {
@@ -167,6 +181,22 @@ public class GameLogic {
             if (history.isEmpty())
                 break;
 
+            // Lưu trạng thái hiện tại vào redoHistory trước khi undo
+            HistoryMove currentState = new HistoryMove();
+            currentState.pieceList = new ArrayList<>();
+            for (Piece p : pieces) {
+                currentState.pieceList.add(p.getCopy());
+            }
+            currentState.capturedList = new ArrayList<>();
+            for (Piece p : capturedPieces) {
+                currentState.capturedList.add(p.getCopy());
+            }
+            currentState.wTime = whiteTime;
+            currentState.bTime = blackTime;
+            currentState.turn = currentColor;
+            currentState.castlingP = (castlingP != null) ? castlingP.getCopy() : null;
+            redoHistory.add(currentState);
+
             HistoryMove prevState = history.remove(history.size() - 1);
             pieces = prevState.pieceList;
             capturedPieces = prevState.capturedList;
@@ -181,8 +211,10 @@ public class GameLogic {
             }
             copyPieces(pieces, simPieces);
 
-            if (!moveList.isEmpty()) {
-                moveList.remove(moveList.size() - 1);
+            // Lưu move vào redoMoveList trước khi xóa (để redo có thể khôi phục)
+            if (!promotion && !moveList.isEmpty()) {
+                String removedMove = moveList.remove(moveList.size() - 1);
+                redoMoveList.add(removedMove);
             }
         }
 
@@ -190,6 +222,23 @@ public class GameLogic {
         promotion = false;
         gameOver = false;
         validSquare = false;
+
+        // Reset last move highlight về trạng thái trước đó
+        if (!moveList.isEmpty()) {
+            // Nếu còn nước đi, parse từ moveList
+            String lastMove = moveList.get(moveList.size() - 1);
+            if (lastMove.length() >= 4) {
+                lastMoveFromCol = lastMove.charAt(0) - 'A';
+                lastMoveFromRow = 8 - (lastMove.charAt(1) - '0');
+                lastMoveToCol = lastMove.charAt(2) - 'A';
+                lastMoveToRow = 8 - (lastMove.charAt(3) - '0');
+            }
+        } else {
+            lastMoveFromCol = -1;
+            lastMoveFromRow = -1;
+            lastMoveToCol = -1;
+            lastMoveToRow = -1;
+        }
     }
 
     // Simulate move (called when dragging)
@@ -561,23 +610,26 @@ public class GameLogic {
      * - King vs King
      * - King + Bishop vs King
      * - King + Knight vs King
-     * - King + Bishop vs King + Bishop (cùng màu ô)
+     * - King + Bishop(s) vs King + Bishop(s) (tất cả Bishop cùng màu ô)
      */
     public boolean isInsufficientMaterial() {
         int whitePieces = 0, blackPieces = 0;
         int whiteBishops = 0, blackBishops = 0;
         int whiteKnights = 0, blackKnights = 0;
-        int whiteBishopSquareColor = -1, blackBishopSquareColor = -1;
+        boolean hasLightSquareBishop = false, hasDarkSquareBishop = false;
 
         for (Piece piece : simPieces) {
             if (piece.type == Type.KING)
-                continue; // Không đếm vua
+                continue;
 
             if (piece.color == WHITE) {
                 whitePieces++;
                 if (piece.type == Type.BISHOP) {
                     whiteBishops++;
-                    whiteBishopSquareColor = (piece.col + piece.row) % 2;
+                    if ((piece.col + piece.row) % 2 == 0)
+                        hasLightSquareBishop = true;
+                    else
+                        hasDarkSquareBishop = true;
                 } else if (piece.type == Type.KNIGHT) {
                     whiteKnights++;
                 }
@@ -585,7 +637,10 @@ public class GameLogic {
                 blackPieces++;
                 if (piece.type == Type.BISHOP) {
                     blackBishops++;
-                    blackBishopSquareColor = (piece.col + piece.row) % 2;
+                    if ((piece.col + piece.row) % 2 == 0)
+                        hasLightSquareBishop = true;
+                    else
+                        hasDarkSquareBishop = true;
                 } else if (piece.type == Type.KNIGHT) {
                     blackKnights++;
                 }
@@ -609,11 +664,14 @@ public class GameLogic {
             return true;
         }
 
-        // King + Bishop vs King + Bishop (cùng màu ô)
-        if (whitePieces == 1 && whiteBishops == 1 &&
-                blackPieces == 1 && blackBishops == 1 &&
-                whiteBishopSquareColor == blackBishopSquareColor) {
-            return true;
+        // Chỉ có Bishops và tất cả đều cùng màu ô
+        int totalBishops = whiteBishops + blackBishops;
+        int totalPieces = whitePieces + blackPieces;
+        if (totalPieces == totalBishops && totalBishops > 0) {
+            // Nếu tất cả Bishop đều trên một loại ô (sáng hoặc tối)
+            if (!hasLightSquareBishop || !hasDarkSquareBishop) {
+                return true;
+            }
         }
 
         return false;
@@ -687,6 +745,12 @@ public class GameLogic {
             currentColor = savedColor;
         }
 
+        // Lưu vị trí nước đi cuối để highlight
+        lastMoveFromCol = fromCol;
+        lastMoveFromRow = fromRow;
+        lastMoveToCol = toCol;
+        lastMoveToRow = toRow;
+
         moveList.add(notation);
     }
 
@@ -734,6 +798,262 @@ public class GameLogic {
     private boolean isThreefoldRepetition() {
         String currentHash = getPositionHash();
         return positionHistory.getOrDefault(currentHash, 0) >= 3;
+    }
+
+    // =============== OPTIONS MENU METHODS ===============
+
+    // Kiểm tra có thể Undo không
+    public boolean canUndo() {
+        return !history.isEmpty() && !gameOver;
+    }
+
+    // Kiểm tra có thể Redo không
+    public boolean canRedo() {
+        return !redoHistory.isEmpty() && !gameOver;
+    }
+
+    // Bật/tắt tạm dừng
+    public void togglePause() {
+        isPaused = !isPaused;
+        if (!isPaused) {
+            lastTimerTime = System.currentTimeMillis();
+        }
+    }
+
+    // Redo - làm lại nước đã undo
+    public void redo() {
+        if (redoHistory.isEmpty() || gameOver)
+            return;
+
+        // Lưu trạng thái hiện tại vào history trước
+        saveState();
+
+        // Lấy trạng thái từ redoHistory
+        HistoryMove redoState = redoHistory.remove(redoHistory.size() - 1);
+        pieces = redoState.pieceList;
+        capturedPieces = redoState.capturedList;
+        whiteTime = redoState.wTime;
+        blackTime = redoState.bTime;
+        currentColor = redoState.turn;
+        castlingP = redoState.castlingP;
+
+        for (Piece piece : pieces) {
+            piece.x = piece.getX(piece.col);
+            piece.y = piece.getY(piece.row);
+        }
+        copyPieces(pieces, simPieces);
+
+        // Khôi phục move từ redoMoveList vào moveList
+        if (!redoMoveList.isEmpty()) {
+            String restoredMove = redoMoveList.remove(redoMoveList.size() - 1);
+            moveList.add(restoredMove);
+
+            // Cập nhật lastMove highlight
+            if (restoredMove.length() >= 4) {
+                lastMoveFromCol = restoredMove.charAt(0) - 'A';
+                lastMoveFromRow = 8 - (restoredMove.charAt(1) - '0');
+                lastMoveToCol = restoredMove.charAt(2) - 'A';
+                lastMoveToRow = 8 - (restoredMove.charAt(3) - '0');
+            }
+        }
+
+        activeP = null;
+    }
+
+    // Đầu hàng
+    public void resign() {
+        if (gameOver)
+            return;
+        gameOver = true;
+        winner = (currentColor == WHITE) ? BLACK : WHITE;
+    }
+
+    // Xin hòa (PvP: cần đối phương đồng ý, PvE: AI tự đồng ý)
+    public boolean offerDraw() {
+        if (gameOver)
+            return false;
+
+        // AI luôn đồng ý hòa
+        if (settings != null && settings.isPvE) {
+            gameOver = true;
+            winner = 2; // Hòa
+            return true;
+        }
+        // PvP: cần dialog xác nhận từ đối phương
+        return true;
+    }
+
+    // Lưu game vào file
+    public void saveGame(String filename) {
+        try {
+            File saveDir = new File("res/saves");
+            if (!saveDir.exists()) {
+                saveDir.mkdirs();
+            }
+
+            PrintWriter writer = new PrintWriter("res/saves/" + filename + ".txt");
+
+            // Lưu thông tin cơ bản
+            writer.println("# Chess Save File");
+            writer.println("currentColor=" + currentColor);
+            writer.println("whiteTime=" + whiteTime);
+            writer.println("blackTime=" + blackTime);
+            writer.println("halfmoveClock=" + halfmoveClock);
+            writer.println("timeLimit=" + (settings != null ? settings.timeLimit : -1));
+            writer.println("isPvE=" + (settings != null ? settings.isPvE : false));
+
+            // Lưu danh sách nước đi
+            writer.println("moves=" + String.join(",", moveList));
+
+            // Lưu vị trí quân cờ
+            writer.println("# Pieces: type,color,col,row,moved");
+            for (Piece p : pieces) {
+                writer.println("piece=" + p.type + "," + p.color + "," + p.col + "," + p.row + "," + p.moved);
+            }
+
+            // Lưu quân bị ăn
+            writer.println("# Captured pieces");
+            for (Piece p : capturedPieces) {
+                writer.println("captured=" + p.type + "," + p.color);
+            }
+
+            writer.close();
+            System.out.println("Đã lưu game: res/saves/" + filename + ".txt");
+        } catch (Exception e) {
+            System.err.println("Lỗi khi lưu game: " + e.getMessage());
+        }
+    }
+
+    // Tải game từ file
+    public boolean loadGame(String filepath) {
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(filepath));
+            String line;
+
+            pieces.clear();
+            simPieces.clear();
+            capturedPieces.clear();
+            moveList.clear();
+            history.clear();
+            redoHistory.clear();
+
+            int timeLimit = -1;
+            boolean isPvE = false;
+
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("#") || line.isEmpty())
+                    continue;
+
+                String[] parts = line.split("=", 2);
+                if (parts.length != 2)
+                    continue;
+
+                String key = parts[0].trim();
+                String value = parts[1].trim();
+
+                switch (key) {
+                    case "currentColor":
+                        currentColor = Integer.parseInt(value);
+                        break;
+                    case "whiteTime":
+                        whiteTime = Integer.parseInt(value);
+                        break;
+                    case "blackTime":
+                        blackTime = Integer.parseInt(value);
+                        break;
+                    case "halfmoveClock":
+                        halfmoveClock = Integer.parseInt(value);
+                        break;
+                    case "timeLimit":
+                        timeLimit = Integer.parseInt(value);
+                        break;
+                    case "isPvE":
+                        isPvE = Boolean.parseBoolean(value);
+                        break;
+                    case "moves":
+                        if (!value.isEmpty()) {
+                            String[] moves = value.split(",");
+                            for (String m : moves) {
+                                if (!m.isEmpty())
+                                    moveList.add(m);
+                            }
+                        }
+                        break;
+                    case "piece":
+                        String[] pParts = value.split(",");
+                        if (pParts.length >= 5) {
+                            Type type = Type.valueOf(pParts[0]);
+                            int color = Integer.parseInt(pParts[1]);
+                            int col = Integer.parseInt(pParts[2]);
+                            int row = Integer.parseInt(pParts[3]);
+                            boolean moved = Boolean.parseBoolean(pParts[4]);
+                            Piece p = createPiece(type, col, row, color);
+                            if (p != null) {
+                                p.moved = moved;
+                                pieces.add(p);
+                            }
+                        }
+                        break;
+                    case "captured":
+                        String[] cParts = value.split(",");
+                        if (cParts.length >= 2) {
+                            Type type = Type.valueOf(cParts[0]);
+                            int color = Integer.parseInt(cParts[1]);
+                            Piece c = createPiece(type, 0, 0, color);
+                            if (c != null)
+                                capturedPieces.add(c);
+                        }
+                        break;
+                }
+            }
+
+            reader.close();
+
+            // Tạo settings với constructor đúng
+            String p2Name = isPvE ? "Computer" : "Player 2";
+            settings = new GameSettings(isPvE, "Player 1", p2Name, WHITE, timeLimit);
+
+            // Sync simPieces
+            copyPieces(pieces, simPieces);
+
+            // Update pixel positions
+            for (Piece p : pieces) {
+                p.x = p.getX(p.col);
+                p.y = p.getY(p.row);
+            }
+
+            // Reset timer
+            lastTimerTime = System.currentTimeMillis();
+            gameOver = false;
+            activeP = null;
+            promotion = false;
+
+            System.out.println("Đã tải game: " + filepath);
+            return true;
+        } catch (Exception e) {
+            System.err.println("Lỗi khi tải game: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // Tạo quân cờ từ type
+    private Piece createPiece(Type type, int col, int row, int color) {
+        switch (type) {
+            case PAWN:
+                return new piece.Pawn(col, row, color);
+            case ROOK:
+                return new piece.Rook(col, row, color);
+            case KNIGHT:
+                return new piece.Knight(col, row, color);
+            case BISHOP:
+                return new piece.Bishop(col, row, color);
+            case QUEEN:
+                return new piece.Queen(col, row, color);
+            case KING:
+                return new piece.King(col, row, color);
+            default:
+                return null;
+        }
     }
 
     // Inner class for history
