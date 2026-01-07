@@ -57,7 +57,7 @@ public class GameRenderer {
     private static final Font FONT_HISTORY = new Font("Consolas", Font.PLAIN, 14);
     private static final Font FONT_HEADER = new Font("Arial", Font.PLAIN, 11);
     private static final Font FONT_TIMER = new Font("Arial", Font.BOLD, 32);
-    private static final Font FONT_BUTTON = new Font("Arial", Font.BOLD, 12);
+    private static final Font FONT_BUTTON = new Font("Arial", Font.BOLD, 14);
     private static final Font FONT_MENU = new Font("Arial", Font.PLAIN, 13);
 
     // Fields
@@ -78,7 +78,7 @@ public class GameRenderer {
         // Highlight vua bị chiếu
         drawCheckHighlight(g2, logic);
 
-        // Vẽ graveyard zone (captured pieces + Undo button)
+        // Vẽ graveyard zone (captured pieces + Options button)
         drawGraveyardZone(g2, logic, mouse);
 
         // Vẽ sidebar (Player info + Move history)
@@ -249,17 +249,9 @@ public class GameRenderer {
         g2.setColor(Color.GRAY);
         g2.drawRect(OPTIONS_BTN_X, OPTIONS_BTN_Y, OPTIONS_BTN_WIDTH - 1, OPTIONS_BTN_HEIGHT - 1);
 
-        // Icon bánh răng (gear)
-        g2.setColor(Color.WHITE);
-        g2.setStroke(new BasicStroke(1.5f));
-        int cx = OPTIONS_BTN_X + 15;
-        int cy = OPTIONS_BTN_Y + 20;
-        g2.drawOval(cx - 6, cy - 6, 12, 12);
-        g2.fillOval(cx - 3, cy - 3, 6, 6);
-
         // Chữ "Options"
         g2.setFont(FONT_BUTTON);
-        g2.drawString("Options", OPTIONS_BTN_X + 25, OPTIONS_BTN_Y + 25);
+        g2.drawString("Options", OPTIONS_BTN_X + 12, OPTIONS_BTN_Y + 25);
     }
 
     // Vẽ popup menu Options
@@ -401,7 +393,7 @@ public class GameRenderer {
 
         g2.setFont(FONT_HEADER);
         g2.setColor(Color.LIGHT_GRAY);
-        g2.drawString("White Moves", SIDEBAR_X + 10, historyY + 18);
+        g2.drawString("White Moves", SIDEBAR_X + 5, historyY + 18);
         g2.drawString("Black Moves", SIDEBAR_X + SIDEBAR_WIDTH / 2 + 5, historyY + 18);
 
         // Đường phân cách cột
@@ -432,12 +424,12 @@ public class GameRenderer {
             // Số dòng + nước trắng
             if (lineIdx * 2 < logic.moveList.size()) {
                 String moveNum = (lineIdx + 1) + ". ";
-                g2.drawString(moveNum + logic.moveList.get(lineIdx * 2), SIDEBAR_X + 5, textY);
+                g2.drawString(moveNum + logic.moveList.get(lineIdx * 2), SIDEBAR_X + 10, textY);
             }
 
             // Nước đen
             if (lineIdx * 2 + 1 < logic.moveList.size()) {
-                g2.drawString(logic.moveList.get(lineIdx * 2 + 1), SIDEBAR_X + SIDEBAR_WIDTH / 2 + 8, textY);
+                g2.drawString(logic.moveList.get(lineIdx * 2 + 1), SIDEBAR_X + SIDEBAR_WIDTH / 2 + 20, textY);
             }
 
             // Đường phân cách dòng

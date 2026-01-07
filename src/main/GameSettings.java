@@ -1,11 +1,11 @@
 package main;
 
 public class GameSettings {
-    public boolean isPvE;   // Đấu với máy hoặc Đấu với người
+    public boolean isPvE; // Đấu với máy hoặc Đấu với người
     public String p1Name;
-    public String p2Name;   // Nếu la PvE => AI Cờ Vua
+    public String p2Name; // Nếu là PvE => AI Cờ Vua
     public int p1Color; // Màu quân của Player 1 (0 là trắng, 1 là đen)
-    public int timeLimit;   // Thời gian 2 bên tính bằng giây
+    public int timeLimit; // Thời gian 2 bên tính bằng giây
 
     public GameSettings(boolean isPvE, String p1Name, String p2Name, int p1Color, int timeLimit) {
         this.isPvE = isPvE;

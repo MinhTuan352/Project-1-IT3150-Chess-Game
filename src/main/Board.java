@@ -11,11 +11,11 @@ public class Board {
 
     public void draw(Graphics2D g2) {
         // Tô toàn bộ bàn cờ bằng màu sáng trước
-        g2.setColor(new Color(240, 237, 212));
+        g2.setColor(new Color(240, 217, 181));
         g2.fillRect(0, 0, MAX_COLS * SQUARE_SIZE, MAX_ROWS * SQUARE_SIZE);
 
         // Vẽ các ô màu tối đè lên
-        g2.setColor(new Color(108, 140, 100));
+        g2.setColor(new Color(181, 136, 99));
         for (int row = 0; row < MAX_ROWS; row++) {
             for (int col = 0; col < MAX_COLS; col++) {
                 // Chỉ vẽ ô có tổng lẻ
@@ -30,10 +30,10 @@ public class Board {
     public String getSquareCoordinates(int col, int row) {
         // Chuyển đổi cột: 0->a, 1->b, ...
         char file = (char) ('a' + col);
-        
+
         // Chuyển đổi hàng: 0->8, 7->1
         int rank = 8 - row;
-        
+
         return "" + file + rank;
     }
 }

@@ -821,14 +821,14 @@ public class GameLogic {
 
     // =============== OPTIONS MENU METHODS ===============
 
-    // Kiểm tra có thể Undo không
+    // Kiểm tra có thể Undo không (không cho phép khi đang phong cấp)
     public boolean canUndo() {
-        return !history.isEmpty() && !gameOver;
+        return !history.isEmpty() && !gameOver && !promotion;
     }
 
-    // Kiểm tra có thể Redo không
+    // Kiểm tra có thể Redo không (không cho phép khi đang phong cấp)
     public boolean canRedo() {
-        return !redoHistory.isEmpty() && !gameOver;
+        return !redoHistory.isEmpty() && !gameOver && !promotion;
     }
 
     // Bật/tắt tạm dừng
