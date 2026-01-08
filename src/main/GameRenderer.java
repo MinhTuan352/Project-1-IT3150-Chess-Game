@@ -174,37 +174,26 @@ public class GameRenderer {
         g2.setColor(Color.BLACK);
         g2.drawLine(GRAVEYARD_X, 0, GRAVEYARD_X, BOARD_SIZE);
 
-        // Vẽ captured pieces với logic xếp thông minh
-        // Tính toán vị trí khả dụng
-        int optionsBtnY = OPTIONS_BTN_Y; // 600
-        int availableHeight = optionsBtnY; // 600px cho captured pieces
-        int maxSlotsPerSide = availableHeight / Board.HALF_SQUARE_SIZE; // 15 hàng mỗi bên
+        // Vẽ captured pieces
+        int halfSize = Board.HALF_SQUARE_SIZE; // 40px
+        int maxY = OPTIONS_BTN_Y - halfSize; // 560px (để chừa nút Options)
 
-        // Đếm số quân đen (cần cho tính toán overflow)
-        int blackCount = 0;
+        // Đếm số quân trắng để tính vùng collision
+        int whiteCount = 0;
         for (Piece piece : GameLogic.capturedPieces) {
-            if (piece.color == GameLogic.BLACK)
-                blackCount++;
+            if (piece.color == GameLogic.WHITE)
+                whiteCount++;
         }
+        int whiteMaxY = whiteCount > 0 ? ((whiteCount - 1) / 2) * halfSize : -1;
 
         // Vẽ quân trắng bị ăn (từ trên xuống)
         int wIdx = 0;
         for (Piece piece : GameLogic.capturedPieces) {
             if (piece.color == GameLogic.WHITE) {
-                int cx, cy;
-                if (wIdx < maxSlotsPerSide * 2) {
-                    // Còn chỗ phía trên
-                    cx = GRAVEYARD_X + (wIdx % 2) * Board.HALF_SQUARE_SIZE;
-                    cy = (wIdx / 2) * Board.HALF_SQUARE_SIZE;
-                } else {
-                    // Overflow: xếp vào vùng đen (từ dưới lên)
-                    int overflow = wIdx - maxSlotsPerSide * 2;
-                    cx = GRAVEYARD_X + (overflow % 2) * Board.HALF_SQUARE_SIZE;
-                    cy = optionsBtnY - Board.HALF_SQUARE_SIZE
-                            - (blackCount / 2 + overflow / 2 + 1) * Board.HALF_SQUARE_SIZE;
-                }
+                int cx = GRAVEYARD_X + (wIdx % 2) * halfSize;
+                int cy = (wIdx / 2) * halfSize;
                 if (piece.image != null) {
-                    g2.drawImage(piece.image, cx, cy, Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, null);
+                    g2.drawImage(piece.image, cx, cy, halfSize, halfSize, null);
                 }
                 wIdx++;
             }
@@ -214,10 +203,17 @@ public class GameRenderer {
         int bIdx = 0;
         for (Piece piece : GameLogic.capturedPieces) {
             if (piece.color == GameLogic.BLACK) {
-                int cx = GRAVEYARD_X + (bIdx % 2) * Board.HALF_SQUARE_SIZE;
-                int cy = optionsBtnY - Board.HALF_SQUARE_SIZE - (bIdx / 2) * Board.HALF_SQUARE_SIZE;
+                int cx = GRAVEYARD_X + (bIdx % 2) * halfSize;
+                int cy = maxY - (bIdx / 2) * halfSize;
+
+                // Fix collision: nếu đen đi vào vùng trắng và muốn dùng cột trái thì chuyển
+                // sang cột phải
+                if (cy <= whiteMaxY && (bIdx % 2) == 0) {
+                    cx = GRAVEYARD_X + halfSize; // Dùng cột phải
+                }
+
                 if (piece.image != null) {
-                    g2.drawImage(piece.image, cx, cy, Board.HALF_SQUARE_SIZE, Board.HALF_SQUARE_SIZE, null);
+                    g2.drawImage(piece.image, cx, cy, halfSize, halfSize, null);
                 }
                 bIdx++;
             }
@@ -424,7 +420,7 @@ public class GameRenderer {
             // Số dòng + nước trắng
             if (lineIdx * 2 < logic.moveList.size()) {
                 String moveNum = (lineIdx + 1) + ". ";
-                g2.drawString(moveNum + logic.moveList.get(lineIdx * 2), SIDEBAR_X + 10, textY);
+                g2.drawString(moveNum + logic.moveList.get(lineIdx * 2), SIDEBAR_X + 5, textY);
             }
 
             // Nước đen

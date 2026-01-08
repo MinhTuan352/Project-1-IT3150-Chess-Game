@@ -966,16 +966,16 @@ public class GameLogic {
             writer.println("[Result \"" + result + "\"]");
             writer.println();
 
-            // Danh sách nước đi
-            StringBuilder moves = new StringBuilder();
-            for (int i = 0; i < moveList.size(); i++) {
-                if (i % 2 == 0) {
-                    moves.append((i / 2 + 1)).append(". ");
+            // Danh sách nước đi (mỗi dòng 1 cặp nước)
+            for (int i = 0; i < moveList.size(); i += 2) {
+                StringBuilder line = new StringBuilder();
+                line.append((i / 2 + 1)).append(". ").append(moveList.get(i));
+                if (i + 1 < moveList.size()) {
+                    line.append(" ").append(moveList.get(i + 1));
                 }
-                moves.append(moveList.get(i)).append(" ");
+                writer.println(line.toString());
             }
-            moves.append(result);
-            writer.println(moves.toString().trim());
+            writer.println(result);
 
             writer.close();
             System.out.println("Đã xuất log: res/log/" + filename);

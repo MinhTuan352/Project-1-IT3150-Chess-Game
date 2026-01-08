@@ -314,18 +314,19 @@ public class GamePanel extends JPanel implements Runnable {
         logic.exportGameLog(pgnResult);
 
         String message = reason + "\n" + winner + "\nBạn muốn làm gì?";
-        Object[] options = { "Chơi lại", "Về Menu" };
+        Object[] options = { "Chơi lại", "Về Menu", "Xem lại" };
 
         int choice = JOptionPane.showOptionDialog(Main.instance, message, "Kết thúc trận đấu",
-                JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[0]);
+                JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE, null, options, options[2]);
 
         if (choice == 0) {
             setupGame(logic.settings);
             launchGame();
-        } else {
+        } else if (choice == 1) {
             gameThread = null;
             Main.instance.returnToMenu();
         }
+        // choice == 2 hoặc đóng dialog => không làm gì, để người chơi xem lại bàn cờ
     }
 
     // Xử lý click menu item
