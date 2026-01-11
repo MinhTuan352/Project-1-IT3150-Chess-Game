@@ -3,6 +3,7 @@ package piece;
 import main.GameLogic;
 import main.Type;
 
+// Quân Mã: Di chuyển theo hình chữ L (2+1 hoặc 1+2), có thể nhảy qua quân khác
 public class Knight extends Piece {
     public Knight(int col, int row, int color) {
         super(col, row, color);

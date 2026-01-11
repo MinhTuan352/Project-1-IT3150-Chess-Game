@@ -3,6 +3,7 @@ package piece;
 import main.GameLogic;
 import main.Type;
 
+// Quân Vua: Di chuyển 1 ô theo mọi hướng, có thể nhập thành với Xe nếu chưa di chuyển
 public class King extends Piece {
     public King(int col, int row, int color) {
         super(col, row, color);

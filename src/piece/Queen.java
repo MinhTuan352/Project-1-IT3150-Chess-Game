@@ -3,6 +3,7 @@ package piece;
 import main.GameLogic;
 import main.Type;
 
+// Quân Hậu: Kết hợp khả năng của Xe và Tượng, di chuyển theo đường thẳng và chéo
 public class Queen extends Piece {
     public Queen(int col, int row, int color) {
         super(col, row, color);

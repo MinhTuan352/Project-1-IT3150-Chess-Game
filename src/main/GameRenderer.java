@@ -5,29 +5,27 @@ import java.awt.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 
-// Game Renderer: Tập trung xử lý giao diện game
+// Lớp chịu trách nhiệm vẽ toàn bộ giao diện game cờ vua
 public class GameRenderer {
     // Layout
-    public static final int BOARD_SIZE = 640;
-    public static final int GRAVEYARD_WIDTH = 80;
-    public static final int SIDEBAR_WIDTH = 160;
+    public static final int BOARD_SIZE = 640; // Kích thước bàn cờ
+    public static final int GRAVEYARD_WIDTH = 80; // Chiều rộng vùng quân bị ăn
+    public static final int SIDEBAR_WIDTH = 160; // Chiều rộng thanh bên
     public static final int TOTAL_WIDTH = BOARD_SIZE + GRAVEYARD_WIDTH + SIDEBAR_WIDTH; // 880
-    public static final int TOTAL_HEIGHT = BOARD_SIZE; // 640 - không thêm space
+    public static final int TOTAL_HEIGHT = BOARD_SIZE; // 640
 
     // Vị trí zone
     private static final int GRAVEYARD_X = BOARD_SIZE;
     private static final int SIDEBAR_X = BOARD_SIZE + GRAVEYARD_WIDTH;
+    private static final int PLAYER_INFO_HEIGHT = 100; // Chiều cao khung thông tin người chơi
 
-    // Player info box
-    private static final int PLAYER_INFO_HEIGHT = 100;
-
-    // Nút Options (thay thế Undo)
+    // Nút Options
     private static final int OPTIONS_BTN_X = GRAVEYARD_X;
     private static final int OPTIONS_BTN_Y = 600;
     private static final int OPTIONS_BTN_WIDTH = GRAVEYARD_WIDTH;
     private static final int OPTIONS_BTN_HEIGHT = 40;
 
-    // Popup menu (mỗi item 40x80)
+    // Popup menu
     private static final int MENU_ITEM_HEIGHT = 40;
     private static final int MENU_ITEM_WIDTH = 80;
 
@@ -46,12 +44,12 @@ public class GameRenderer {
     private static final Color HISTORY_BG = new Color(40, 40, 45);
     private static final Color HISTORY_HEADER_BG = new Color(55, 55, 60);
     private static final Color LINE_COLOR = new Color(70, 70, 70);
-    private static final Color CHECK_HIGHLIGHT = new Color(200, 60, 60, 200);
-    private static final Color LEGAL_MOVE = new Color(100, 100, 100, 180);
-    private static final Color ILLEGAL_MOVE = new Color(200, 50, 50, 180);
+    private static final Color CHECK_HIGHLIGHT = new Color(200, 60, 60, 200); // Màu highlight khi vua bị chiếu
+    private static final Color LEGAL_MOVE = new Color(100, 100, 100, 180); // Màu highlight nước đi hợp lệ
+    private static final Color ILLEGAL_MOVE = new Color(200, 50, 50, 180); // Màu highlight nước đi không hợp lệ
     private static final Color PROMO_BG = new Color(255, 255, 255, 230);
-    private static final Color TURN_BORDER = new Color(80, 180, 80);
-    private static final Color LAST_MOVE_HIGHLIGHT = new Color(180, 180, 50, 120);
+    private static final Color TURN_BORDER = new Color(80, 180, 80); // Màu viền lượt đi
+    private static final Color LAST_MOVE_HIGHLIGHT = new Color(180, 180, 50, 120); // Màu highlight nước đi cuối
 
     // Font chữ
     private static final Font FONT_HISTORY = new Font("Consolas", Font.PLAIN, 14);
@@ -63,20 +61,15 @@ public class GameRenderer {
     // Fields
     private final DecimalFormat timeFormat = new DecimalFormat("00");
     private final Board board = new Board();
-    public boolean showOptionsMenu = false; // Trạng thái hiện popup menu
+    public boolean showOptionsMenu = false; // Trạng thái hiển thị popup menu
 
-    // Hàm vẽ game
+    // Vẽ toàn bộ giao diện game
     public void paintGame(Graphics2D g2, GameLogic logic, Mouse mouse, int historyScrollIndex) {
         setupRenderingHints(g2);
 
-        // Vẽ bàn cờ
-        board.draw(g2);
-
-        // Highlight nước đi cuối
-        drawLastMoveHighlight(g2, logic);
-
-        // Highlight vua bị chiếu
-        drawCheckHighlight(g2, logic);
+        board.draw(g2); // Vẽ bàn cờ
+        drawLastMoveHighlight(g2, logic); // Highlight nước đi cuối
+        drawCheckHighlight(g2, logic); // Highlight vua bị chiếu
 
         // Vẽ graveyard zone (captured pieces + Options button)
         drawGraveyardZone(g2, logic, mouse);
@@ -96,12 +89,13 @@ public class GameRenderer {
         }
     }
 
-    // Các hàm hỗ trợ vẽ
+    // Thiết lập chế độ khử răng cưa cho đồ họa
     private void setupRenderingHints(Graphics2D g2) {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
     }
 
+    // Vẽ highlight nước đi cuối cùng
     private void drawLastMoveHighlight(Graphics2D g2, GameLogic logic) {
         if (logic.lastMoveFromCol >= 0 && logic.lastMoveToCol >= 0) {
             g2.setColor(LAST_MOVE_HIGHLIGHT);
@@ -114,6 +108,7 @@ public class GameRenderer {
         }
     }
 
+    // Vẽ highlight khi vua đang bị chiếu
     private void drawCheckHighlight(Graphics2D g2, GameLogic logic) {
         if (logic.checkingP != null) {
             Piece king = logic.getKing(logic.currentColor);
@@ -125,6 +120,7 @@ public class GameRenderer {
         }
     }
 
+    // Vẽ tất cả các quân cờ trên bàn
     private void drawPieces(Graphics2D g2, GameLogic logic) {
         // Tạo bản sao để tránh ConcurrentModificationException
         ArrayList<Piece> piecesCopy = new ArrayList<>(GameLogic.simPieces);
@@ -135,19 +131,23 @@ public class GameRenderer {
         }
     }
 
+    // Vẽ quân cờ đang được người chơi kéo thả
     private void drawActivePiece(Graphics2D g2, GameLogic logic) {
         if (logic.activeP == null)
             return;
 
+        // Vẽ highlight ô đích nếu quân có thể di chuyển
         if (logic.canMove) {
             g2.setColor(logic.isIllegal(logic.activeP) ? ILLEGAL_MOVE : LEGAL_MOVE);
             g2.fillRect(logic.activeP.col * Board.SQUARE_SIZE, logic.activeP.row * Board.SQUARE_SIZE,
                     Board.SQUARE_SIZE, Board.SQUARE_SIZE);
         }
 
+        // Vẽ quân cờ theo con trỏ chuột
         logic.activeP.draw(g2);
     }
 
+    // Vẽ giao diện chọn quân phong cấp
     private void drawPromotionUI(Graphics2D g2, GameLogic logic) {
         g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
@@ -164,7 +164,14 @@ public class GameRenderer {
         g2.drawImage(logic.promoPieces.get(3).image, x + half, y + half, half, half, null);
     }
 
-    // Vùng Graveyard
+    /**
+     * Vẽ vùng graveyard (quân bị ăn) và nút Options.
+     * Quân trắng xếp từ trên xuống, quân đen xếp từ dưới lên.
+     * 
+     * @param g2    Đối tượng Graphics2D
+     * @param logic Trạng thái logic game
+     * @param mouse Trạng thái chuột
+     */
     private void drawGraveyardZone(Graphics2D g2, GameLogic logic, Mouse mouse) {
         // Nền graveyard
         g2.setColor(BG_GRAVEYARD);

@@ -9,15 +9,16 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.awt.Graphics2D;
 
+// Lớp cơ sở cho tất cả các quân cờ
 public class Piece {
-    public Type type;
-    public BufferedImage image;
-    public int x, y; // Toạ độ vẽ quân cờ trên bàn cờ
-    public int col, row, preCol, preRow;
-    public int color; // 0: white, 1: black
-    public Piece hittingP;
-    public boolean moved; // Check quân đã di chuyển chưa (Áp dụng cho Tốt và Vua)
-    public boolean twoStepped; // Kiểm tra quân Tốt đi 2 nước
+    public Type type; // Loại quân cờ
+    public BufferedImage image; // Hình ảnh quân cờ
+    public int x, y; // Toạ độ vẽ trên màn hình (pixel)
+    public int col, row, preCol, preRow; // Vị trí trên bàn cờ (0-7)
+    public int color; // 0 = Trắng, 1 = Đen
+    public Piece hittingP; // Quân cờ đang bị nhắm tới
+    public boolean moved; // Đánh dấu quân đã di chuyển chưa
+    public boolean twoStepped; // Đánh dấu quân Tốt vừa đi 2 nước
 
     public Piece(int col, int row, int color) {
         this.col = col;

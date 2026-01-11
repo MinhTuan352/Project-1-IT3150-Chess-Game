@@ -3,6 +3,7 @@ package piece;
 import main.GameLogic;
 import main.Type;
 
+// Quân Tốt: Đi thẳng 1 ô (đi 2 ô nước đầu), ăn chéo, phong cấp khi đến hàng cuối
 public class Pawn extends Piece {
     public Pawn(int col, int row, int color) {
         super(col, row, color);

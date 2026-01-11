@@ -3,6 +3,7 @@ package piece;
 import main.GameLogic;
 import main.Type;
 
+// Quân Xe: Di chuyển theo đường thẳng (ngang hoặc dọc), tham gia nhập thành với Vua
 public class Rook extends Piece {
     public Rook(int col, int row, int color) {
         super(col, row, color);

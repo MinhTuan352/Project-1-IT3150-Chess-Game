@@ -16,53 +16,53 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Random;
 
-// Game Logic: Chứa toàn bộ logic game cờ vua
+// Lớp chứa toàn bộ logic game cờ vua
 public class GameLogic {
     // Color constants
     public static final int WHITE = 0;
     public static final int BLACK = 1;
 
     // Piece lists
-    public static ArrayList<Piece> pieces = new ArrayList<>();
-    public static ArrayList<Piece> simPieces = new ArrayList<>();
-    public static ArrayList<Piece> capturedPieces = new ArrayList<>();
-    public ArrayList<Piece> promoPieces = new ArrayList<>();
+    public static ArrayList<Piece> pieces = new ArrayList<>(); // Danh sách quân cờ chính thức
+    public static ArrayList<Piece> simPieces = new ArrayList<>(); // Danh sách quân cờ giả lập
+    public static ArrayList<Piece> capturedPieces = new ArrayList<>(); // Quân đã bị ăn
+    public ArrayList<Piece> promoPieces = new ArrayList<>(); // Quân có thể phong cấp
 
     // Active pieces
-    public Piece activeP;
-    public Piece checkingP;
-    public static Piece castlingP;
+    public Piece activeP; // Quân đang được chọn
+    public Piece checkingP; // Quân đang chiếu vua
+    public static Piece castlingP; // Quân Xe tham gia nhập thành
 
     // Game state
-    public int currentColor = WHITE;
-    public boolean canMove;
-    public boolean validSquare;
-    public boolean promotion;
-    public boolean gameOver;
+    public int currentColor = WHITE; // Màu quân lượt đi hiện tại
+    public boolean canMove; // Quân có thể di chuyển
+    public boolean validSquare; // Ô đích hợp lệ
+    public boolean promotion; // Đang trong trạng thái phong cấp
+    public boolean gameOver; // Game đã kết thúc
 
     // Timer
-    public GameSettings settings;
-    public int whiteTime;
-    public int blackTime;
-    public long lastTimerTime;
+    public GameSettings settings; // Cấu hình ván đấu
+    public int whiteTime; // Thời gian còn lại của Trắng (giây)
+    public int blackTime; // Thời gian còn lại của Đen (giây)
+    public long lastTimerTime; // Thời điểm cập nhật timer lần cuối
 
     // History
-    public ArrayList<String> moveList = new ArrayList<>();
-    public ArrayList<HistoryMove> history = new ArrayList<>();
-    public int halfmoveClock = 0;
-    public HashMap<String, Integer> positionHistory = new HashMap<>();
+    public ArrayList<String> moveList = new ArrayList<>(); // Danh sách nước đi
+    public ArrayList<HistoryMove> history = new ArrayList<>(); // Lịch sử trạng thái (undo)
+    public int halfmoveClock = 0; // Đếm lượt không ăn quân/đi Tốt (luật 50 nước)
+    public HashMap<String, Integer> positionHistory = new HashMap<>(); // Lịch sử vị trí (lặp 3 lần)
 
     // Last move highlight
-    public int lastMoveFromCol = -1, lastMoveFromRow = -1;
-    public int lastMoveToCol = -1, lastMoveToRow = -1;
+    public int lastMoveFromCol = -1, lastMoveFromRow = -1; // Ô xuất phát nước cuối
+    public int lastMoveToCol = -1, lastMoveToRow = -1; // Ô đích nước cuối
 
     // Options menu support
-    public boolean isPaused = false;
-    public ArrayList<HistoryMove> redoHistory = new ArrayList<>();
-    public ArrayList<String> redoMoveList = new ArrayList<>(); // Lưu các move bị undo
+    public boolean isPaused = false; // Game đang tạm dừng
+    public ArrayList<HistoryMove> redoHistory = new ArrayList<>(); // Lịch sử cho redo
+    public ArrayList<String> redoMoveList = new ArrayList<>(); // Nước đi đã undo
     public int winner = -1; // -1 = chưa có, 0 = WHITE, 1 = BLACK, 2 = HÒA
 
-    // Board reference
+    // Helpers
     private Board board = new Board();
 
     public GameLogic() {

@@ -8,27 +8,26 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
-// GamePanel: View + Input + Game Loop
+// Panel chính của trò chơi cờ vua, xử lý View + Input + Game Loop
 public class GamePanel extends JPanel implements Runnable {
-    public static final int WIDTH = GameRenderer.TOTAL_WIDTH;
-    public static final int HEIGHT = GameRenderer.TOTAL_HEIGHT;
-    final int FPS = 60;
+    public static final int WIDTH = GameRenderer.TOTAL_WIDTH; // Chiều rộng panel
+    public static final int HEIGHT = GameRenderer.TOTAL_HEIGHT; // Chiều cao panel
+    final int FPS = 60; // Số khung hình mỗi giây
 
-    Thread gameThread;
-    Board board = new Board();
-    Mouse mouse = new Mouse();
+    Thread gameThread; // Thread chạy game loop
+    Board board = new Board(); // Đối tượng bàn cờ
+    Mouse mouse = new Mouse(); // Xử lý sự kiện chuột
 
-    // Modules
-    public GameLogic logic;
-    public GameRenderer renderer;
+    public GameLogic logic; // Module xử lý logic game
+    public GameRenderer renderer; // Module vẽ giao diện
 
-    // View state
-    int historyScrollIndex = 0;
+    int historyScrollIndex = 0; // Chỉ số cuộn lịch sử nước đi
 
     public GamePanel() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.black);
 
+        // Đăng ký các listener để nhận sự kiện chuột
         addMouseMotionListener(mouse);
         addMouseListener(mouse);
         addMouseWheelListener(new MouseWheelListener() {
@@ -38,22 +37,25 @@ public class GamePanel extends JPanel implements Runnable {
             }
         });
 
+        // Khởi tạo các module chính
         logic = new GameLogic();
         renderer = new GameRenderer();
     }
 
+    // Bắt đầu game loop trên thread riêng
     public void launchGame() {
         gameThread = new Thread(this);
         gameThread.start();
     }
 
+    // Thiết lập ván đấu mới với cài đặt từ người chơi
     public void setupGame(GameSettings settings) {
         logic.setupGame(settings);
         historyScrollIndex = 0;
         renderer.showOptionsMenu = false;
     }
 
-    // Tải game từ GameLogic đã load
+    // Tải ván đấu từ GameLogic đã load sẵn (từ file save)
     public void loadGameFromLogic(GameLogic loadedLogic) {
         this.logic = loadedLogic;
         historyScrollIndex = 0;
@@ -61,18 +63,22 @@ public class GamePanel extends JPanel implements Runnable {
         launchGame();
     }
 
+    // Vòng lặp chính của game (Game Loop)
     @Override
     public void run() {
+        // Khoảng thời gian giữa các frame (nano giây)
         double drawInterval = 1000000000 / FPS;
         double delta = 0;
         long lastTime = System.nanoTime();
         long currentTime;
 
+        // Vòng lặp chạy khi gameThread còn active
         while (gameThread != null) {
             currentTime = System.nanoTime();
             delta += (currentTime - lastTime) / drawInterval;
             lastTime = currentTime;
 
+            // Khi đủ thời gian cho 1 frame thì cập nhật và vẽ lại
             if (delta >= 1) {
                 update();
                 repaint();
@@ -81,6 +87,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    // Cập nhật trạng thái game mỗi frame
     private void update() {
         // Xử lý nút Options và popup menu
         if (mouse.pressed) {
@@ -242,6 +249,10 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    /**
+     * Xử lý chọn quân phong cấp khi Tốt đến hàng cuối.
+     * Hiển thị 4 lựa chọn: Tượng, Mã, Hậu, Xe và chờ người chơi click chọn.
+     */
     private void selectingPromotion() {
         if (mouse.pressed) {
             int x = logic.activeP.col * Board.SQUARE_SIZE;
@@ -284,6 +295,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    // Xử lý sự kiện cuộn chuột để scroll lịch sử nước đi
     private void handleScroll(MouseWheelEvent e) {
         int totalLines = (int) Math.ceil(logic.moveList.size() / 2.0);
         int maxLines = (logic.settings != null && logic.settings.timeLimit == -1) ? 12 : 8;
@@ -297,6 +309,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    // Hiển thị dialog kết thúc game
     private void showGameOverDialog(String reason) {
         String winner = (logic.currentColor == GameLogic.WHITE) ? "BLACK WINS!" : "WHITE WINS!";
 
@@ -329,7 +342,7 @@ public class GamePanel extends JPanel implements Runnable {
         // choice == 2 hoặc đóng dialog => không làm gì, để người chơi xem lại bàn cờ
     }
 
-    // Xử lý click menu item
+    // Xử lý click vào các mục trong menu Options
     private void handleMenuClick(String item) {
         switch (item) {
             case "Save":
@@ -376,10 +389,13 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    // Vẽ toàn bộ giao diện game lên panel
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
+
+        // Vẽ toàn bộ game (bàn cờ, quân cờ, UI)
         renderer.paintGame(g2, logic, mouse, historyScrollIndex);
 
         // Vẽ popup menu (trên cùng)

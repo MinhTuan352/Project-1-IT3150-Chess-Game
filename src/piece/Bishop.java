@@ -3,6 +3,7 @@ package piece;
 import main.GameLogic;
 import main.Type;
 
+// Quân Tượng: Di chuyển theo đường chéo, luôn ở trên cùng màu ô
 public class Bishop extends Piece {
     public Bishop(int col, int row, int color) {
         super(col, row, color);
