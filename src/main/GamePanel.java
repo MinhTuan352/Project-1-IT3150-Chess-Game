@@ -214,7 +214,7 @@ public class GamePanel extends JPanel implements Runnable {
                                 logic.copyPieces(GameLogic.pieces, GameLogic.simPieces);
 
                                 // Log với vị trí gốc được truyền trực tiếp
-                                logic.logMoveWithCoords(fromCol, fromRow, toCol, toRow, capturedP, null);
+                                logic.logMove(fromCol, fromRow, toCol, toRow, capturedP, null);
                                 logic.changePlayer();
                             }
                         }

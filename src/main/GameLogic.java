@@ -372,17 +372,22 @@ public class GameLogic {
             }
 
             // Log move sẽ được thực hiện trước khi updatePosition
+            int fromRow = activeP.preRow;
+            int toRow = activeP.row;
+            int fromCol = activeP.preCol;
+            int toCol = activeP.col;
+
             if (canPromote()) {
                 promoPieces.clear();
                 promoPieces.add(new Queen(9, 9, currentColor));
-                logMove(activeP, capturedP, promoPieces.get(0));
                 activeP.updatePosition();
                 copyPieces(simPieces, pieces);
+                logMove(fromCol, fromRow, toCol, toRow, capturedP, promoPieces.get(0));
                 replacePawn(promoPieces.get(0));
             } else {
-                logMove(activeP, capturedP, null);
                 activeP.updatePosition();
                 copyPieces(simPieces, pieces);
+                logMove(fromCol, fromRow, toCol, toRow, capturedP, null);
                 changePlayer();
             }
         } else {
@@ -525,7 +530,7 @@ public class GameLogic {
         copyPieces(pieces, simPieces);
 
         // Log với vị trí gốc và quân mới
-        logMoveWithCoords(fromCol, fromRow, toCol, toRow, capturedRef, promoPiece);
+        logMove(fromCol, fromRow, toCol, toRow, capturedRef, promoPiece);
 
         promotion = false;
         activeP = null;
@@ -696,46 +701,8 @@ public class GameLogic {
         return false;
     }
 
-    public void logMove(Piece p, Piece captured, Piece promoteTo) {
-        String from = board.getSquareCoordinates(p.preCol, p.preRow).toUpperCase();
-        String to = board.getSquareCoordinates(p.col, p.row).toUpperCase();
-        String notation = from + to;
-
-        if (promoteTo != null) {
-            if (promoteTo.type == Type.QUEEN)
-                notation += "Q";
-            else if (promoteTo.type == Type.ROOK)
-                notation += "R";
-            else if (promoteTo.type == Type.BISHOP)
-                notation += "B";
-            else if (promoteTo.type == Type.KNIGHT)
-                notation += "N";
-        }
-
-        // Sync simPieces từ pieces để kiểm tra chiếu chính xác
-        copyPieces(pieces, simPieces);
-
-        // Kiểm tra chiếu hết hoặc chiếu để thêm ký hiệu
-        // opponentColor là màu đối phương (người vừa bị di chuyển vào)
-        int opponentColor = (currentColor == WHITE) ? BLACK : WHITE;
-        if (isKingInCheck(opponentColor)) {
-            // Kiểm tra xem có phải checkmate không
-            // Tạm đổi currentColor để isCheckmate() kiểm tra đúng bên
-            int savedColor = currentColor;
-            currentColor = opponentColor;
-            if (isCheckmate()) {
-                notation += "#"; // Chiếu hết
-            } else {
-                notation += "+"; // Chiếu
-            }
-            currentColor = savedColor; // Khôi phục
-        }
-
-        moveList.add(notation);
-    }
-
-    // Overload để GamePanel truyền tọa độ trực tiếp (sau khi updatePosition)
-    public void logMoveWithCoords(int fromCol, int fromRow, int toCol, int toRow, Piece captured, Piece promoteTo) {
+    // Ghi log nước đi
+    public void logMove(int fromCol, int fromRow, int toCol, int toRow, Piece captured, Piece promoteTo) {
         String from = board.getSquareCoordinates(fromCol, fromRow).toUpperCase();
         String to = board.getSquareCoordinates(toCol, toRow).toUpperCase();
         String notation = from + to;
