@@ -246,11 +246,6 @@ public class Piece {
         g2.drawImage(image, x, y, Board.SQUARE_SIZE, Board.SQUARE_SIZE, null);
     }
 
-    // Vẽ quân cờ với kích thước tuỳ chỉnh
-    public void draw(Graphics2D g2, int width, int height) {
-        g2.drawImage(image, x, y, width, height, null);
-    }
-
     // Tạo bản sao của quân cờ để undo
     public Piece getCopy() {
         Piece newPiece = null;
